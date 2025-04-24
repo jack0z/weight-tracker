@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weight Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- ApexCharts for charting -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.min.js"></script>
+  <!-- Import our modular JavaScript with type="module" -->
+  <script type="module" src="core.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Weight Tracker</h1>
+      <p class="subtitle">Track your weight over time with a simple spreadsheet-like interface</p>
+      <button id="theme-toggle" class="theme-toggle">
+        <span class="theme-icon">🌓</span>
+      </button>
+    </header>
+
+    <div class="grid">
+      <!-- Settings -->
+      <section class="card">
+        <div class="card-header">
+          <h2>Settings</h2>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label for="start-weight">Start Weight (kg)</label>
+            <div class="input-group">
+              <input type="number" id="start-weight" step="0.1" placeholder="e.g. 80.5">
+              <button id="set-start" class="btn">Set</button>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="goal-weight">Goal Weight (kg)</label>
+            <div class="input-group">
+              <input type="number" id="goal-weight" step="0.1" placeholder="e.g. 75.0">
+              <button id="set-goal" class="btn">Set</button>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="height">Height (cm)</label>
+            <div class="input-group">
+              <input type="number" id="height" step="0.1" placeholder="e.g. 175">
+              <button id="set-height" class="btn">Set</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Weight Chart -->
+      <section class="card">
+        <div class="card-header">
+          <h2>Weight Chart</h2>
+        </div>
+        <div class="card-body">
+          <div id="chart-container" class="chart-container"></div>
+        </div>
+      </section>
+
+      <!-- Add New Entry -->
+      <section class="card">
+        <div class="card-header">
+          <h2>Add New Entry</h2>
+        </div>
+        <div class="card-body">
+          <form id="add-form">
+            <div class="form-group">
+              <label for="date">Date</label>
+              <input type="date" id="date" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="weight">Weight (kg)</label>
+              <div class="input-group">
+                <input type="number" id="weight" step="0.1" placeholder="Enter weight" required>
+                <button type="submit" class="btn primary">Add</button>
+              </div>
+            </div>
+          </form>
+          
+          <div class="import-container">
+            <label for="import-file" class="import-label">Import from Excel/CSV</label>
+            <input type="file" id="import-file" accept=".csv,.xls,.xlsx">
+          </div>
+        </div>
+      </section>
+
+      <!-- Weight History -->
+      <section class="card">
+        <div class="card-header">
+          <h2>Weight History</h2>
+          <button id="export-btn" class="btn small" disabled>Export CSV</button>
+        </div>
+        <div class="card-body">
+          <div id="history-container" class="table-container"></div>
+        </div>
+      </section>
+
+      <!-- Summary Cards -->
+      <section class="card full-width">
+        <div class="card-header">
+          <h2>Summary</h2>
+        </div>
+        <div class="card-body">
+          <div id="summary-container" class="summary-container"></div>
+          <div id="bmi-container" class="bmi-container"></div>
+        </div>
+      </section>
+
+      <!-- Averages Table -->
+      <section class="card full-width" id="averages-section">
+        <div class="card-header">
+          <h2>Weight Averages</h2>
+        </div>
+        <div class="card-body">
+          <div id="averages-container" class="table-container"></div>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      <p>Data is stored locally in your browser.</p>
+    </footer>
+  </div>
+</body>
+</html> 

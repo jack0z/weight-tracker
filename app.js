@@ -4,11 +4,22 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Input } from "./components/ui/input";
 import { Button } from "./components/ui/button";
-import { format, parseISO, subDays, addDays } from "date-fns";
-import { Trash2, Save, TrendingDown, TrendingUp, Minus, Download, Calendar, ArrowRight } from "lucide-react";
+import { format as dateFormat, parseISO, subDays, addDays } from "date-fns";
+import { Trash2, Save, TrendingDown, TrendingUp, Minus, Download, Calendar, ArrowRight, LogOut, Sun, Moon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import dynamic from "next/dynamic";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./components/ui/table";
+
+// Import our modules
+import * as Data from './data.js';
+import * as Stats from './stats.js';
+import * as ChartUtils from './chart.js';
+import * as Export from './export.js';
+import * as UI from './ui.js';
+import * as Auth from './auth.js';
+
+// Import Login component
+import Login from './components/Login.jsx';
 
 // Dynamically import ApexCharts with no SSR to avoid hydration issues
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -17,50 +28,162 @@ export default function WeightTracker() {
   const [isClient, setIsClient] = useState(false);
   const [weight, setWeight] = useState("");
   const [entries, setEntries] = useState([]);
+  const [formattedEntries, setFormattedEntries] = useState([]);
   const [startWeight, setStartWeight] = useState("");
   const [goalWeight, setGoalWeight] = useState("");
   const [date, setDate] = useState("");
   const [height, setHeight] = useState("");
+  const [forceRender, setForceRender] = useState(false);
+  
+  // User authentication state
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState("");
+  const [showLoginForm, setShowLoginForm] = useState(false);
+  
+  // Theme state
+  const [theme, setTheme] = useState("light");
+  
+  // Toggle theme function
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
   
   // Initialize state from localStorage only after component mounts
   useEffect(() => {
+    console.log("Initial useEffect running...");
     setIsClient(true);
-    const savedEntries = localStorage.getItem("weight-entries");
-    if (savedEntries) {
-      setEntries(JSON.parse(savedEntries));
-    }
     
-    const savedStartWeight = localStorage.getItem("start-weight");
-    if (savedStartWeight) {
-      setStartWeight(parseFloat(savedStartWeight) || "");
+    try {
+      // Check if user is already logged in
+      const existingUser = Auth.checkExistingLogin();
+      if (existingUser) {
+        setIsLoggedIn(true);
+        setCurrentUser(existingUser.username);
+        
+        // Load user-specific data
+        const userData = Auth.loadUserData(existingUser.username);
+        if (userData) {
+          setEntries(userData.entries);
+          const formatted = Data.formatEntries(userData.entries, dateFormat);
+          setFormattedEntries(formatted);
+          
+          if (userData.settings.startWeight) {
+            setStartWeight(userData.settings.startWeight);
+          }
+          
+          if (userData.settings.goalWeight) {
+            setGoalWeight(userData.settings.goalWeight);
+          }
+          
+          if (userData.settings.height) {
+            setHeight(userData.settings.height);
+          }
+        }
+      } else {
+        // No user is logged in, show login form
+        setShowLoginForm(true);
+      }
+      
+      // Set the current date for new entries
+      setDate(dateFormat(new Date(), "yyyy-MM-dd"));
+      
+      // Load theme preference
+      const savedTheme = localStorage.getItem("theme");
+      if (savedTheme) {
+        setTheme(savedTheme);
+      }
+      
+      console.log("Initial data loading complete!");
+    } catch (error) {
+      console.error("Error during initial data loading:", error);
     }
-    
-    const savedGoalWeight = localStorage.getItem("goal-weight");
-    if (savedGoalWeight) {
-      setGoalWeight(parseFloat(savedGoalWeight) || "");
-    }
-    
-    const savedHeight = localStorage.getItem("height");
-    if (savedHeight) {
-      setHeight(parseFloat(savedHeight) || "");
-    }
-    
-    setDate(format(new Date(), "yyyy-MM-dd"));
   }, []);
-
+  
+  // Apply theme to document
   useEffect(() => {
-    if (isClient && entries.length > 0) {
-      localStorage.setItem("weight-entries", JSON.stringify(entries));
+    if (!isClient) return;
+    
+    // Save theme preference
+    localStorage.setItem("theme", theme);
+    
+    // Apply theme to document
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
     }
-  }, [entries, isClient]);
+  }, [theme, isClient]);
 
+  // Save entries to localStorage when they change
   useEffect(() => {
-    if (isClient) {
-      localStorage.setItem("start-weight", startWeight);
-      localStorage.setItem("goal-weight", goalWeight);
-      localStorage.setItem("height", height);
+    if (isClient && isLoggedIn && entries.length > 0) {
+      // Save entries to user-specific storage
+      Auth.saveUserData(currentUser, entries, null);
+      setFormattedEntries(Data.formatEntries(entries, dateFormat));
     }
-  }, [startWeight, goalWeight, height, isClient]);
+  }, [entries, isClient, isLoggedIn, currentUser]);
+
+  // Save settings to localStorage when they change
+  useEffect(() => {
+    if (isClient && isLoggedIn) {
+      // Save settings to user-specific storage
+      Auth.saveUserData(currentUser, null, {
+        startWeight,
+        goalWeight,
+        height
+      });
+    }
+  }, [startWeight, goalWeight, height, isClient, isLoggedIn, currentUser]);
+
+  // Handle user login
+  const handleUserLogin = (user) => {
+    setIsLoggedIn(true);
+    setCurrentUser(user.username);
+    setShowLoginForm(false);
+    
+    // Load user data
+    const userData = Auth.loadUserData(user.username);
+    if (userData) {
+      setEntries(userData.entries);
+      const formatted = Data.formatEntries(userData.entries, dateFormat);
+      setFormattedEntries(formatted);
+      
+      if (userData.settings.startWeight) {
+        setStartWeight(userData.settings.startWeight);
+      }
+      
+      if (userData.settings.goalWeight) {
+        setGoalWeight(userData.settings.goalWeight);
+      }
+      
+      if (userData.settings.height) {
+        setHeight(userData.settings.height);
+      }
+    }
+  };
+
+  // Handle user logout
+  const handleUserLogout = () => {
+    const success = Auth.handleLogout();
+    if (success) {
+      setIsLoggedIn(false);
+      setCurrentUser("");
+      
+      // Reset state to avoid data leakage
+      setEntries([]);
+      setFormattedEntries([]);
+      setStartWeight("");
+      setGoalWeight("");
+      setHeight("");
+      
+      // Show login form
+      setShowLoginForm(true);
+      
+      toast.success("Logged out successfully");
+    } else {
+      toast.error("Error logging out");
+    }
+  };
 
   const handleSetStart = () => {
     if (!startWeight || isNaN(parseFloat(startWeight))) {
@@ -80,321 +203,6 @@ export default function WeightTracker() {
     toast.success("Goal weight saved");
   };
 
-  const handleAdd = () => {
-    if (!weight || isNaN(parseFloat(weight))) {
-      toast.error("Please enter a valid weight");
-      return;
-    }
-    
-    const newEntry = {
-      id: Date.now(),
-      date: new Date(date).toISOString(),
-      weight: parseFloat(weight)
-    };
-    setEntries([newEntry, ...entries]);
-    setWeight("");
-    toast.success("Weight entry added");
-  };
-  
-  const handleDelete = (id) => {
-    setEntries(entries.filter(entry => entry.id !== id));
-    toast.success("Entry deleted");
-  };
-
-  const formattedEntries = entries.map(e => ({
-    ...e,
-    dateFormatted: format(new Date(e.date), "MMM d, yyyy"),
-    dayFormatted: format(new Date(e.date), "EEEE"),
-    dateObj: new Date(e.date)
-  })).sort((a, b) => b.dateObj - a.dateObj);
-
-  // Calculate the trend indicators
-  const getTrendIcon = (value) => {
-    if (!value || value === 0) return <Minus className="h-4 w-4 text-[#b5bac1]" />;
-    return value < 0 ? 
-      <TrendingDown className="h-4 w-4 text-[#57f287]" /> : 
-      <TrendingUp className="h-4 w-4 text-[#ed4245]" />;
-  };
-
-  // Simplified average calculation with consistent date handling
-  const calculatePeriodAverage = (days) => {
-    if (formattedEntries.length < 2) {
-      console.log(`${days}-day period: Not enough entries`, { total: formattedEntries.length });
-      return { value: 0, hasData: false };
-    }
-    
-    // Use the date of the most recent entry instead of current date
-    const mostRecentDate = formattedEntries[0].dateObj;
-    const cutoffDate = subDays(mostRecentDate, days);
-    
-    console.log(`${days}-day period calculation:`, { 
-      recentEntryDate: mostRecentDate.toISOString(), 
-      cutoffDate: cutoffDate.toISOString(),
-      totalEntries: formattedEntries.length,
-      firstEntryDate: formattedEntries[0]?.dateObj,
-      lastEntryDate: formattedEntries[formattedEntries.length-1]?.dateObj
-    });
-    
-    // Get entries from the specified period
-    const recentEntries = formattedEntries.filter(entry => {
-      const isIncluded = entry.dateObj >= cutoffDate;
-      console.log(`Entry ${format(entry.dateObj, "yyyy-MM-dd")}: ${isIncluded ? "included" : "excluded"} in ${days}-day period`);
-      return isIncluded;
-    });
-    
-    console.log(`${days}-day period filtered entries:`, { 
-      count: recentEntries.length,
-      dates: recentEntries.map(e => format(e.dateObj, "yyyy-MM-dd"))
-    });
-    
-    if (recentEntries.length < 2) {
-      console.log(`${days}-day period: Not enough filtered entries`, { filtered: recentEntries.length });
-      return { value: 0, hasData: false };
-    }
-    
-    // Calculate the oldest and newest weights in the period
-    const oldestEntry = recentEntries[recentEntries.length - 1];
-    const newestEntry = recentEntries[0];
-    
-    // Calculate average daily change
-    const daysDiff = Math.max(1, (newestEntry.dateObj - oldestEntry.dateObj) / (1000 * 60 * 60 * 24));
-    const weightDiff = newestEntry.weight - oldestEntry.weight;
-    const avgDailyChange = weightDiff / daysDiff;
-    
-    console.log(`${days}-day period result:`, {
-      oldest: format(oldestEntry.dateObj, "yyyy-MM-dd"),
-      newest: format(newestEntry.dateObj, "yyyy-MM-dd"),
-      daysDiff,
-      weightDiff,
-      avgDailyChange
-    });
-    
-    return { 
-      value: avgDailyChange.toFixed(2), 
-      hasData: true,
-      totalChange: weightDiff.toFixed(1),
-      startWeight: oldestEntry.weight,
-      endWeight: newestEntry.weight,
-      startDate: format(oldestEntry.dateObj, "MMM d"),
-      endDate: format(newestEntry.dateObj, "MMM d")
-    };
-  };
-
-  // Use real calculated values instead of hardcoded test data
-  const sevenDayAvg = calculatePeriodAverage(7);
-  const fourteenDayAvg = calculatePeriodAverage(14);
-  const thirtyDayAvg = calculatePeriodAverage(30);
-
-  // Prepare chart data
-  const chartData = {
-    options: {
-      chart: {
-        type: 'area',
-        height: 350,
-        toolbar: {
-          show: false,
-        },
-        background: 'transparent',
-        fontFamily: 'Inter, sans-serif',
-      },
-      colors: ['#5865f2'],
-      dataLabels: {
-        enabled: false
-      },
-      stroke: {
-        curve: 'smooth',
-        width: 3,
-      },
-      fill: {
-        type: 'gradient',
-        gradient: {
-          shadeIntensity: 1,
-          opacityFrom: 0.7,
-          opacityTo: 0.2,
-          stops: [0, 90, 100],
-          colorStops: [
-            {
-              offset: 0,
-              color: '#5865f2',
-              opacity: 0.2
-            },
-            {
-              offset: 100,
-              color: '#5865f2',
-              opacity: 0
-            }
-          ]
-        }
-      },
-      grid: {
-        borderColor: '#1e1f22',
-        strokeDashArray: 3,
-        row: {
-          colors: ['transparent'],
-          opacity: 0.5
-        },
-      },
-      annotations: {
-        yaxis: [
-          ...(goalWeight ? [{
-            y: goalWeight,
-            borderColor: '#57f287',
-            borderWidth: 2,
-            strokeDashArray: 5,
-            label: {
-              borderColor: '#57f287',
-              style: {
-                color: '#fff',
-                background: '#57f287'
-              },
-              text: 'Goal'
-            }
-          }] : []),
-          ...(startWeight ? [{
-            y: startWeight,
-            borderColor: '#fee75c',
-            borderWidth: 2,
-            strokeDashArray: 5,
-            label: {
-              borderColor: '#fee75c',
-              style: {
-                color: '#000',
-                background: '#fee75c'
-              },
-              text: 'Start'
-            }
-          }] : [])
-        ]
-      },
-      xaxis: {
-        type: 'datetime',
-        categories: [...formattedEntries].reverse().map(e => e.date),
-        labels: {
-          style: {
-            colors: '#b5bac1',
-          },
-          format: 'MMM dd',
-        },
-        axisBorder: {
-          show: false
-        },
-        axisTicks: {
-          show: false
-        }
-      },
-      yaxis: {
-        labels: {
-          style: {
-            colors: '#b5bac1',
-          },
-          formatter: (value) => `${value} kg`
-        },
-      },
-      tooltip: {
-        theme: 'dark',
-        x: {
-          format: 'MMM dd, yyyy'
-        },
-        y: {
-          formatter: (value) => `${value} kg`
-        }
-      }
-    },
-    series: [{
-      name: 'Weight',
-      data: [...formattedEntries].reverse().map(e => e.weight)
-    }]
-  };
-
-  // Calculate BMI
-  const calculateBMI = (weightKg, heightCm) => {
-    if (!weightKg || !heightCm) return null;
-    
-    const heightM = heightCm / 100;
-    const bmi = weightKg / (heightM * heightM);
-    return bmi.toFixed(1);
-  };
-  
-  const getBMICategory = (bmi) => {
-    if (!bmi) return "";
-    
-    if (bmi < 18.5) return { category: "Underweight", color: "text-[#fee75c]" };
-    if (bmi < 25) return { category: "Healthy", color: "text-[#57f287]" };
-    if (bmi < 30) return { category: "Overweight", color: "text-[#fee75c]" };
-    return { category: "Obese", color: "text-[#ed4245]" };
-  };
-  
-  const currentBMI = entries.length > 0 ? calculateBMI(entries[0].weight, height) : null;
-  const bmiCategory = getBMICategory(currentBMI);
-  
-  // Calculate weight forecast and target date estimation
-  const calculateForecast = () => {
-    if (!sevenDayAvg.hasData || !goalWeight) return null;
-    
-    const avgDailyChange = parseFloat(sevenDayAvg.value);
-    if (avgDailyChange === 0) return { isPossible: false, reason: "No change in weight trend" };
-    
-    const currentWeight = entries[0].weight;
-    const weightDifference = goalWeight - currentWeight;
-    
-    // If weight trend doesn't align with goal (e.g., gaining when goal is to lose)
-    if ((weightDifference < 0 && avgDailyChange > 0) || 
-        (weightDifference > 0 && avgDailyChange < 0)) {
-      return { 
-        isPossible: false, 
-        reason: weightDifference < 0 
-          ? "Currently gaining weight while goal is to lose" 
-          : "Currently losing weight while goal is to gain"
-      };
-    }
-    
-    // Calculate days needed
-    const daysNeeded = Math.abs(Math.round(weightDifference / avgDailyChange));
-    
-    // Calculate target date
-    const today = new Date(entries[0].date);
-    const targetDate = addDays(today, daysNeeded);
-    
-    return {
-      isPossible: true,
-      daysNeeded,
-      targetDate,
-      targetDateFormatted: format(targetDate, "MMM d, yyyy"),
-      weeklyRate: Math.abs(avgDailyChange * 7).toFixed(1)
-    };
-  };
-  
-  const forecast = goalWeight ? calculateForecast() : null;
-
-  // Export data to CSV
-  const exportToCsv = () => {
-    if (entries.length === 0) {
-      toast.error("No data to export");
-      return;
-    }
-    
-    // Prepare CSV content
-    let csvContent = "Date,Weight (kg)\n";
-    
-    // Add all entries
-    formattedEntries.forEach(entry => {
-      csvContent += `${format(entry.dateObj, "yyyy-MM-dd")},${entry.weight}\n`;
-    });
-    
-    // Create a blob and download link
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `weight-data-${format(new Date(), "yyyy-MM-dd")}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast.success("Data exported successfully");
-  };
-  
   const handleSetHeight = () => {
     if (!height || isNaN(parseFloat(height))) {
       toast.error("Please enter a valid height");
@@ -404,87 +212,231 @@ export default function WeightTracker() {
     toast.success("Height saved");
   };
 
-  // Helper functions for weight distribution chart
-  const getWeightRanges = () => {
-    if (formattedEntries.length === 0) return [];
-    
-    // Get min and max weights
-    const weights = formattedEntries.map(entry => entry.weight);
-    const minWeight = Math.floor(Math.min(...weights));
-    const maxWeight = Math.ceil(Math.max(...weights));
-    
-    // Create ranges (0.5kg increments)
-    const ranges = [];
-    for (let i = minWeight; i <= maxWeight; i += 0.5) {
-      ranges.push(`${i.toFixed(1)}-${(i + 0.5).toFixed(1)}`);
+  const handleAdd = () => {
+    if (!weight || isNaN(parseFloat(weight))) {
+      toast.error("Please enter a valid weight");
+      return;
     }
     
-    return ranges;
+    // Use our Data module to add an entry
+    const updatedEntries = Data.addEntry(date, weight, entries);
+    setEntries(updatedEntries);
+    setWeight("");
+    toast.success("Weight entry added");
+  };
+  
+  const handleDelete = (id) => {
+    // Use our Data module to delete an entry
+    const updatedEntries = Data.deleteEntry(id, entries);
+    setEntries(updatedEntries);
+    toast.success("Entry deleted");
   };
 
-  const getWeightDistribution = () => {
-    if (formattedEntries.length === 0) return [];
-    
-    const ranges = getWeightRanges();
-    const distribution = new Array(ranges.length).fill(0);
-    
-    // Count days in each weight range
-    formattedEntries.forEach(entry => {
-      const weight = entry.weight;
-      const rangeIndex = Math.floor((weight - Math.floor(Math.min(...formattedEntries.map(e => e.weight)))) * 2);
-      if (rangeIndex >= 0 && rangeIndex < distribution.length) {
-        distribution[rangeIndex]++;
-      }
-    });
-    
-    return distribution;
+  // Use the UI module's function to get trend icons
+  const getTrendIcon = (value) => {
+    if (!value || value === 0) return <Minus className="h-4 w-4 text-[#b5bac1]" />;
+    return value < 0 ? 
+      <TrendingDown className="h-4 w-4 text-[#57f287]" /> : 
+      <TrendingUp className="h-4 w-4 text-[#ed4245]" />;
   };
 
-  // If not yet client-side hydrated, show a loading state
-  if (!isClient) {
-    return (
-      <div className="min-h-screen bg-[#2b2d31] text-[#e3e5e8] p-4 md:p-6 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-xl font-bold mb-2">Loading Weight Tracker...</p>
-          <div className="w-10 h-10 border-4 border-t-[#5865f2] border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin mx-auto"></div>
-        </div>
-      </div>
+  // Use Stats module for calculations
+  const sevenDayAvg = Stats.calculatePeriodAverage(formattedEntries, 7);
+  const fourteenDayAvg = Stats.calculatePeriodAverage(formattedEntries, 14);
+  const thirtyDayAvg = Stats.calculatePeriodAverage(formattedEntries, 30);
+
+  // Use BMI calculation from Stats module
+  const calculateBMI = (weightKg, heightCm) => {
+    return Stats.calculateBMI(weightKg, heightCm);
+  };
+
+  // Use BMI category function from Stats module
+  const getBMICategory = (bmi) => {
+    return Stats.getBMICategory(bmi);
+  };
+
+  // Use forecast calculation from Stats module
+  const calculateForecast = () => {
+    if (!formattedEntries.length || !goalWeight) return null;
+    
+    return Stats.calculateForecast(
+      formattedEntries[0],
+      parseFloat(goalWeight),
+      thirtyDayAvg
     );
+  };
+
+  // Export function using Export module
+  const exportToCsv = () => {
+    if (entries.length === 0) {
+      toast.error("No data to export");
+      return;
+    }
+    
+    const success = Export.exportToCsv(entries);
+    
+    if (success) {
+      toast.success("Data exported successfully");
+    } else {
+      toast.error("Error exporting data");
+    }
+  };
+
+  // Handle file import
+  const handleImport = async (event) => {
+    const file = event.target.files[0];
+    
+    if (!file) {
+      return;
+    }
+    
+    try {
+      toast.info("Importing data...");
+      
+      const importedEntries = await Export.importFromFile(file);
+      
+      if (importedEntries.length === 0) {
+        toast.error("No valid entries found in the file");
+        return;
+      }
+      
+      // Merge with existing entries, avoiding duplicates
+      const existingDates = entries.map(e => new Date(e.date).toISOString().split('T')[0]);
+      
+      let newEntries = [];
+      let duplicates = 0;
+      
+      importedEntries.forEach(entry => {
+        const entryDate = new Date(entry.date).toISOString().split('T')[0];
+        
+        if (!existingDates.includes(entryDate)) {
+          newEntries.push(entry);
+        } else {
+          duplicates++;
+        }
+      });
+      
+      if (newEntries.length === 0) {
+        toast.info(`No new entries to import (${duplicates} duplicates found)`);
+        return;
+      }
+      
+      // Add new entries
+      const updatedEntries = [...entries, ...newEntries];
+      setEntries(updatedEntries);
+      
+      // Show success message
+      toast.success(`Imported ${newEntries.length} entries (${duplicates} duplicates skipped)`);
+      
+    } catch (error) {
+      console.error('Import error:', error);
+      toast.error('Error importing data: ' + error.message);
+    }
+    
+    // Reset file input
+    event.target.value = '';
+  };
+
+  // Use Stats module functions for weight ranges and distribution
+  const getWeightRanges = () => {
+    return Stats.getWeightRanges(entries);
+  };
+  
+  const getWeightDistribution = () => {
+    return Stats.getWeightDistribution(entries);
+  };
+
+  // Get chart configuration from Chart module
+  const chartConfig = ChartUtils.generateChartConfig(
+    entries,
+    startWeight,
+    goalWeight,
+    theme
+  );
+
+  // Remove vertical lines from chart
+  if (chartConfig && chartConfig.options && chartConfig.options.grid) {
+    chartConfig.options.grid.xaxis = {
+      lines: {
+        show: false // This disables vertical grid lines
+      }
+    };
   }
 
+  // Show login screen if not logged in
+  if (showLoginForm) {
+    return <Login onLogin={handleUserLogin} theme={theme} toggleTheme={toggleTheme} />;
+  }
+
+  // Color scheme based on theme
+  const colors = {
+    bg: theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-gray-100',
+    cardBg: theme === 'dark' ? 'bg-[#313338]' : 'bg-white',
+    border: theme === 'dark' ? 'border-[#1e1f22]' : 'border-gray-200',
+    text: theme === 'dark' ? 'text-[#e3e5e8]' : 'text-gray-800',
+    textMuted: theme === 'dark' ? 'text-[#b5bac1]' : 'text-gray-500',
+    buttonBgPrimary: theme === 'dark' ? 'bg-[#5865f2] hover:bg-[#4752c4]' : 'bg-blue-600 hover:bg-blue-700',
+    buttonBgSecondary: theme === 'dark' ? 'bg-[#4f545c] hover:bg-[#5d6269]' : 'bg-gray-200 hover:bg-gray-300',
+    buttonBgDanger: theme === 'dark' ? 'bg-[#ed4245] hover:bg-[#eb2c30]' : 'bg-red-500 hover:bg-red-600',
+    inputBg: theme === 'dark' ? 'bg-[#1e1f22]' : 'bg-gray-50',
+    blockBg: theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-gray-50',
+    positive: theme === 'dark' ? 'text-[#57f287]' : 'text-green-600',
+    negative: theme === 'dark' ? 'text-[#ed4245]' : 'text-red-500',
+  };
+
+  // Main UI return
   return (
-    <div className="min-h-screen bg-[#2b2d31] text-[#e3e5e8] p-4 md:p-6">
+    <div className={`min-h-screen ${colors.bg} ${colors.text} p-4 md:p-6`}>
       <Toaster 
         position="top-right" 
         toastOptions={{
           style: {
-            background: "#313338",
-            color: "#e3e5e8",
-            border: "1px solid #1e1f22",
+            background: theme === 'dark' ? "#313338" : "#ffffff",
+            color: theme === 'dark' ? "#e3e5e8" : "#374151",
+            border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
             boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.2)"
-          },
-          success: {
-            icon: "✅",
-          },
-          error: {
-            icon: "❌",
           }
         }}
       />
-
+      
       <div className="max-w-6xl mx-auto">
-        <header className="mb-6">
-          <h1 className="text-3xl font-bold text-white">Weight Tracker</h1>
-          <p className="text-[#b5bac1]">Track your weight over time with a simple spreadsheet-like interface</p>
-        </header>
-
+        {/* Header with user info and controls */}
+        <div className={`flex justify-between items-center mb-4 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+          <div className="flex items-center gap-1">
+            <h2 className={`text-xl sm:text-2xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+              Weight Tracker
+            </h2>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-sm mr-2">{currentUser}</span>
+            <button
+              onClick={toggleTheme}
+              className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {theme === 'dark' ? (
+                <Sun size={16} className="text-white" />
+              ) : (
+                <Moon size={16} className="text-white" />
+              )}
+            </button>
+            <button 
+              onClick={handleUserLogout} 
+              className={`p-2 rounded-full ${theme === 'dark' ? 'bg-[#ed4245] hover:bg-[#eb2c30]' : 'bg-[#F85552] hover:bg-[#e04b48]'}`}
+              title="Log Out"
+            >
+              <LogOut size={16} className="text-white" />
+            </button>
+          </div>
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left column - Settings */}
-          <Card className="bg-[#313338] border-[#1e1f22] shadow-xl rounded-lg overflow-hidden">
-            <CardHeader className="border-b border-[#1e1f22] pb-3 pt-4 flex justify-center">
-              <CardTitle className="text-[#f2f3f5] text-lg">Settings</CardTitle>
+          {/* Settings Card - Top Left */}
+          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
+            <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
+              <CardTitle className={`${colors.text} text-lg`}>Settings</CardTitle>
             </CardHeader>
-            <CardContent className="py-6 px-6">
+            <CardContent className={`py-6 px-6`}>
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-[#b5bac1] mb-2 pl-1">Start Weight (kg)</label>
@@ -495,11 +447,11 @@ export default function WeightTracker() {
                       type="number"
                       step="0.1"
                       placeholder="e.g. 80.5"
-                      className="bg-[#1e1f22] border-[#1e1f22] text-[#e3e5e8] h-10 pl-3"
+                      className={`${colors.inputBg} h-10 pl-3 rounded-md`}
                     />
                     <button
                       onClick={handleSetStart}
-                      className="px-4 py-2 h-10 bg-[#404249] hover:bg-[#4752c4] text-white rounded-md flex items-center space-x-1 border border-[#1e1f22]"
+                      className={`${colors.buttonBgPrimary} px-4 py-2 h-10 rounded-md flex items-center space-x-1`}
                     >
                       <Save className="h-4 w-4 mr-1" />
                       <span>Set</span>
@@ -515,11 +467,11 @@ export default function WeightTracker() {
                       type="number"
                       step="0.1"
                       placeholder="e.g. 75.0"
-                      className="bg-[#1e1f22] border-[#1e1f22] text-[#e3e5e8] h-10 pl-3"
+                      className={`${colors.inputBg} h-10 pl-3 rounded-md`}
                     />
                     <button
                       onClick={handleSetGoal}
-                      className="px-4 py-2 h-10 bg-[#404249] hover:bg-[#4752c4] text-white rounded-md flex items-center space-x-1 border border-[#1e1f22]"
+                      className={`${colors.buttonBgPrimary} px-4 py-2 h-10 rounded-md flex items-center space-x-1`}
                     >
                       <Save className="h-4 w-4 mr-1" />
                       <span>Set</span>
@@ -535,11 +487,11 @@ export default function WeightTracker() {
                       type="number"
                       step="0.1"
                       placeholder="e.g. 175"
-                      className="bg-[#1e1f22] border-[#1e1f22] text-[#e3e5e8] h-10 pl-3"
+                      className={`${colors.inputBg} h-10 pl-3 rounded-md`}
                     />
                     <button
                       onClick={handleSetHeight}
-                      className="px-4 py-2 h-10 bg-[#404249] hover:bg-[#4752c4] text-white rounded-md flex items-center space-x-1 border border-[#1e1f22]"
+                      className={`${colors.buttonBgPrimary} px-4 py-2 h-10 rounded-md flex items-center space-x-1`}
                     >
                       <Save className="h-4 w-4 mr-1" />
                       <span>Set</span>
@@ -550,18 +502,18 @@ export default function WeightTracker() {
             </CardContent>
           </Card>
 
-          {/* Right column - Chart */}
-          <Card className="bg-[#313338] border-[#1e1f22] shadow-xl rounded-lg overflow-hidden">
-            <CardHeader className="border-b border-[#1e1f22] pb-3 pt-4 flex justify-center">
-              <CardTitle className="text-[#f2f3f5] text-lg">Weight Chart</CardTitle>
+          {/* Chart Card - Top Right */}
+          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
+            <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
+              <CardTitle className={`${colors.text} text-lg`}>Weight Chart</CardTitle>
             </CardHeader>
-            <CardContent className="py-6 px-6">
+            <CardContent className={`py-6 px-6`}>
               <div className="h-[300px]">
                 {entries.length > 0 ? (
                   typeof window !== 'undefined' ? 
                     <Chart 
-                      options={chartData.options} 
-                      series={chartData.series} 
+                      options={chartConfig.options} 
+                      series={chartConfig.series} 
                       type="area" 
                       height={300}
                     />
@@ -574,7 +526,7 @@ export default function WeightTracker() {
                         const input = document.querySelector('input[type="number"]');
                         if (input) input.focus();
                       }} 
-                      className="px-4 py-2 bg-[#5865f2] hover:bg-[#4752c4] text-white rounded-md border border-[#4752c4]"
+                      className={`${colors.buttonBgPrimary} px-4 py-2 rounded-md border border-[#4752c4]`}
                     >
                       Add Your First Weight
                     </button>
@@ -584,12 +536,12 @@ export default function WeightTracker() {
             </CardContent>
           </Card>
 
-          {/* Left column - Add New Entry */}
-          <Card className="bg-[#313338] border-[#1e1f22] shadow-xl rounded-lg overflow-hidden">
-            <CardHeader className="border-b border-[#1e1f22] pb-3 pt-4 flex justify-center">
-              <CardTitle className="text-[#f2f3f5] text-lg">Add New Entry</CardTitle>
+          {/* Add New Entry Card - Bottom Left */}
+          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
+            <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
+              <CardTitle className={`${colors.text} text-lg`}>Add New Entry</CardTitle>
             </CardHeader>
-            <CardContent className="py-6 px-6">
+            <CardContent className={`py-6 px-6`}>
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-[#b5bac1] mb-2 pl-1">Date</label>
@@ -597,7 +549,7 @@ export default function WeightTracker() {
                     type="date"
                     value={date}
                     onChange={e => setDate(e.target.value)}
-                    className="bg-[#1e1f22] border-[#1e1f22] text-[#e3e5e8] h-10 pl-3 pr-8"
+                    className={`${colors.inputBg} h-10 pl-3 pr-8 rounded-md`}
                     style={{ 
                       backgroundPosition: "calc(100% - 8px) center",
                       backgroundSize: "20px"
@@ -613,27 +565,59 @@ export default function WeightTracker() {
                       type="number"
                       step="0.1"
                       placeholder="Enter weight"
-                      className="bg-[#1e1f22] border-[#1e1f22] text-[#e3e5e8] h-10 pl-3"
+                      className={`${colors.inputBg} h-10 pl-3 rounded-md`}
                     />
                     <button 
                       onClick={handleAdd} 
-                      className="px-4 py-2 h-10 bg-[#5865f2] hover:bg-[#4752c4] text-white rounded-md border border-[#4752c4]"
+                      className={`${colors.buttonBgPrimary} px-4 py-2 h-10 rounded-md border border-[#4752c4]`}
                     >
                       Add
                     </button>
                   </div>
                 </div>
+
+                {/* Import from file section */}
+                <div className="mt-4 pt-4 border-t border-[#1e1f22]">
+                  <label className="block text-sm font-medium text-[#b5bac1] mb-2 pl-1">
+                    Import from Excel/CSV
+                  </label>
+                  <input 
+                    type="file" 
+                    accept=".csv,.xls,.xlsx"
+                    onChange={handleImport}
+                    className={`${colors.inputBg} w-full text-sm text-[#b5bac1] rounded-md
+                      file:mr-4 file:py-2 file:px-4 
+                      file:rounded-md file:border-0 
+                      file:text-sm file:font-semibold 
+                      file:bg-[#404249] file:text-white 
+                      hover:file:bg-[#4752c4]`}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Right column - Weight History */}
-          <Card className="bg-[#313338] border-[#1e1f22] shadow-xl rounded-lg overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-center border-b border-[#1e1f22] pb-3 pt-4">
-              <CardTitle className="text-[#f2f3f5] text-lg">Weight History</CardTitle>
-              <div className="text-sm text-[#b5bac1] ml-2">({entries.length} entries)</div>
+          {/* Weight History Card - Bottom Right */}
+          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
+            <CardHeader className={`border-b ${colors.border} relative flex flex-row items-center justify-center pb-3 pt-4`}>
+              <div className="flex items-center">
+                <CardTitle className={`${colors.text} text-lg`}>Weight History</CardTitle>
+                <div className="text-sm text-[#b5bac1] ml-2">({entries.length} entries)</div>
+              </div>
+              <button
+                onClick={exportToCsv}
+                disabled={entries.length === 0}
+                className={`${colors.buttonBgPrimary} px-3 py-1 text-xs rounded-md flex items-center absolute right-4
+                  ${entries.length > 0 
+                    ? 'bg-[#404249] hover:bg-[#4752c4] text-white cursor-pointer' 
+                    : 'bg-[#36373d] text-[#72767d] cursor-not-allowed'}`}
+                title="Export to CSV"
+              >
+                <Download size={14} className="mr-1" />
+                Export
+              </button>
             </CardHeader>
-            <CardContent className="py-6 px-6">
+            <CardContent className={`py-6 px-6`}>
               <div className="overflow-x-auto max-h-[350px]">
                 {entries.length > 0 ? (
                   <Table className="w-full">
@@ -656,9 +640,9 @@ export default function WeightTracker() {
                         
                         return (
                           <TableRow key={entry.id || entry.date}>
-                            <TableCell className="text-[#e3e5e8]">{entry.dateFormatted}</TableCell>
-                            <TableCell className="text-[#b5bac1]">{entry.dayFormatted}</TableCell>
-                            <TableCell className="text-[#e3e5e8] font-medium">{entry.weight}</TableCell>
+                            <TableCell className={`${colors.text}`}>{entry.dateFormatted}</TableCell>
+                            <TableCell className={`${colors.text}`}>{entry.dayFormatted}</TableCell>
+                            <TableCell className={`${colors.text} font-medium`}>{entry.weight}</TableCell>
                             <TableCell className={`${changeColor} flex items-center`}>
                               {change !== "--" ? (
                                 <>
@@ -670,7 +654,7 @@ export default function WeightTracker() {
                             <TableCell className="text-right">
                               <button 
                                 onClick={() => handleDelete(entry.id)}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#ed4245] hover:text-red-400 hover:bg-[#4b2325]"
+                                className={`${theme === 'dark' ? 'bg-[#ed4245] hover:bg-[#eb2c30]' : 'bg-[#F85552] hover:bg-[#e04b48]'} inline-flex h-8 w-8 items-center justify-center rounded-md text-white`}
                               >
                                 <Trash2 size={16} />
                               </button>
@@ -688,29 +672,29 @@ export default function WeightTracker() {
               </div>
             </CardContent>
           </Card>
-
+          
           {/* Summary Card - Spans full width on larger screens */}
           {entries.length > 0 && (
-            <Card className="bg-[#313338] border-[#1e1f22] shadow-xl md:col-span-2 rounded-lg overflow-hidden">
-              <CardHeader className="border-b border-[#1e1f22] pb-3 pt-4 flex justify-center">
-                <CardTitle className="text-[#f2f3f5] text-lg">Summary</CardTitle>
+            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden`}>
+              <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
+                <CardTitle className={`${colors.text} text-lg`}>Summary</CardTitle>
               </CardHeader>
-              <CardContent className="py-6 px-6">
+              <CardContent className={`py-6 px-6`}>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-[#2b2d31] p-4 rounded-md">
+                  <div className={`${colors.blockBg} p-4 rounded-md`}>
                     <div className="text-sm text-[#b5bac1] mb-1">Current</div>
                     <div className="text-xl font-bold text-white">{entries[0].weight} kg</div>
                   </div>
                   
                   {goalWeight && (
-                    <div className="bg-[#2b2d31] p-4 rounded-md">
+                    <div className={`${colors.blockBg} p-4 rounded-md`}>
                       <div className="text-sm text-[#b5bac1] mb-1">Goal</div>
                       <div className="text-xl font-bold text-white">{goalWeight} kg</div>
                     </div>
                   )}
                   
                   {startWeight && entries.length > 0 && (
-                    <div className="bg-[#2b2d31] p-4 rounded-md">
+                    <div className={`${colors.blockBg} p-4 rounded-md`}>
                       <div className="text-sm text-[#b5bac1] mb-1">Total Change</div>
                       <div className="flex items-center">
                         <span className="text-xl font-bold text-white mr-1">
@@ -722,7 +706,7 @@ export default function WeightTracker() {
                   )}
                   
                   {entries.length > 1 && (
-                    <div className="bg-[#2b2d31] p-4 rounded-md">
+                    <div className={`${colors.blockBg} p-4 rounded-md`}>
                       <div className="text-sm text-[#b5bac1] mb-1">Last Change</div>
                       <div className="flex items-center">
                         <span className="text-xl font-bold text-white mr-1">
@@ -735,10 +719,10 @@ export default function WeightTracker() {
 
                   {/* BMI Card */}
                   {height && entries.length > 0 && (
-                    <div className="bg-[#2b2d31] p-4 rounded-md">
+                    <div className={`${colors.blockBg} p-4 rounded-md`}>
                       <div className="text-sm text-[#b5bac1] mb-1">BMI</div>
-                      <div className="text-xl font-bold text-white">{currentBMI}</div>
-                      <div className={`text-sm ${bmiCategory.color} mt-1`}>{bmiCategory.category}</div>
+                      <div className="text-xl font-bold text-white">{calculateBMI(entries[0].weight, height)}</div>
+                      <div className={`text-sm ${getBMICategory(calculateBMI(entries[0].weight, height)).color} mt-1`}>{getBMICategory(calculateBMI(entries[0].weight, height)).category}</div>
                     </div>
                   )}
                 </div>
@@ -748,69 +732,69 @@ export default function WeightTracker() {
           
           {/* Forecast Card */}
           {entries.length > 0 && goalWeight && sevenDayAvg.hasData && (
-            <Card className="bg-[#313338] border-[#1e1f22] shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2">
-              <CardHeader className="border-b border-[#1e1f22] pb-3 pt-4 flex justify-center">
-                <CardTitle className="text-[#f2f3f5] text-lg">Forecast</CardTitle>
+            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2`}>
+              <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
+                <CardTitle className={`${colors.text} text-lg`}>Forecast</CardTitle>
               </CardHeader>
-              <CardContent className="py-6 px-6">
+              <CardContent className={`py-6 px-6`}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Weight Projection */}
-                  <div className="bg-[#2b2d31] p-4 rounded-md">
+                  <div className={`${colors.blockBg} p-4 rounded-md`}>
                     <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-lg font-medium text-[#f2f3f5]">Weight Projection</h3>
+                      <h3 className={`${colors.text} text-lg font-medium`}>Weight Projection</h3>
                     </div>
                     
-                    {forecast?.isPossible ? (
+                    {calculateForecast()?.isPossible ? (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-[#b5bac1]">Current trend:</span>
-                          <span className="font-medium text-white">
+                          <span className={`${colors.textMuted}`}>Current trend:</span>
+                          <span className={`${colors.text} font-medium`}>
                             {sevenDayAvg.value > 0 ? "+" : ""}{sevenDayAvg.value} kg/day
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-[#b5bac1]">Weekly rate:</span>
-                          <span className="font-medium text-white">{forecast.weeklyRate} kg/week</span>
+                          <span className={`${colors.textMuted}`}>Weekly rate:</span>
+                          <span className={`${colors.text} font-medium`}>{calculateForecast().weeklyRate} kg/week</span>
                         </div>
                         <div className="h-[1px] w-full bg-[#1e1f22] my-3"></div>
                         <div className="flex items-center justify-between">
-                          <span className="text-[#b5bac1]">Current:</span>
-                          <span className="font-medium text-white">{entries[0].weight} kg</span>
+                          <span className={`${colors.textMuted}`}>Current:</span>
+                          <span className={`${colors.text} font-medium`}>{entries[0].weight} kg</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-[#b5bac1]">Goal:</span>
-                          <span className="font-medium text-white">{goalWeight} kg</span>
+                          <span className={`${colors.textMuted}`}>Goal:</span>
+                          <span className={`${colors.text} font-medium`}>{goalWeight} kg</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-[#b5bac1]">Remaining:</span>
-                          <span className="font-medium text-white">
+                          <span className={`${colors.textMuted}`}>Remaining:</span>
+                          <span className={`${colors.text} font-medium`}>
                             {Math.abs(goalWeight - entries[0].weight).toFixed(1)} kg
                           </span>
                         </div>
                       </div>
                     ) : (
                       <div className="py-2 text-[#ed4245]">
-                        {forecast ? forecast.reason : "Insufficient data for projection"}
+                        {calculateForecast() ? calculateForecast().reason : "Insufficient data for projection"}
                       </div>
                     )}
                   </div>
                   
                   {/* Target Date */}
-                  <div className="bg-[#2b2d31] p-4 rounded-md">
+                  <div className={`${colors.blockBg} p-4 rounded-md`}>
                     <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-lg font-medium text-[#f2f3f5]">Target Date Estimation</h3>
-                      <Calendar size={20} className="text-[#b5bac1]" />
+                      <h3 className={`${colors.text} text-lg font-medium`}>Target Date Estimation</h3>
+                      <Calendar size={20} className={`${colors.textMuted}`} />
                     </div>
                     
-                    {forecast?.isPossible ? (
+                    {calculateForecast()?.isPossible ? (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-[#b5bac1]">Estimated time to goal:</span>
-                          <span className="font-medium text-white">{forecast.daysNeeded} days</span>
+                          <span className={`${colors.textMuted}`}>Estimated time to goal:</span>
+                          <span className={`${colors.text} font-medium`}>{calculateForecast().daysNeeded} days</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-[#b5bac1]">Target date:</span>
-                          <span className="font-medium text-white">{forecast.targetDateFormatted}</span>
+                          <span className={`${colors.textMuted}`}>Target date:</span>
+                          <span className={`${colors.text} font-medium`}>{calculateForecast().targetDateFormatted}</span>
                         </div>
                         
                         <div className="mt-4 pt-4 border-t border-[#1e1f22]">
@@ -826,15 +810,15 @@ export default function WeightTracker() {
                                 style={{ right: "0%" }}
                               ></div>
                             </div>
-                            <span>{forecast.targetDateFormatted}</span>
+                            <span>{calculateForecast().targetDateFormatted}</span>
                           </div>
                         </div>
                       </div>
                     ) : (
                       <div className="py-2 text-center flex flex-col items-center space-y-4">
-                        <ArrowRight size={32} className="text-[#b5bac1]" />
-                        <span className="text-[#b5bac1]">
-                          {forecast ? forecast.reason : "Set a goal weight and establish a trend"}
+                        <ArrowRight size={32} className={`${colors.textMuted}`} />
+                        <span className={`${colors.textMuted}`}>
+                          {calculateForecast() ? calculateForecast().reason : "Set a goal weight and establish a trend"}
                         </span>
                       </div>
                     )}
@@ -845,31 +829,42 @@ export default function WeightTracker() {
           )}
           
           {/* Export Card */}
-          {entries.length > 0 && (
-            <Card className="bg-[#313338] border-[#1e1f22] shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2">
-              <CardHeader className="border-b border-[#1e1f22] pb-3 pt-4 flex justify-center relative">
-                <CardTitle className="text-[#f2f3f5] text-lg">Data Management</CardTitle>
+          {entries.length > 0 && formattedEntries.length > 0 && (
+            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2`}>
+              <CardHeader className={`border-b ${colors.border} relative flex flex-row items-center justify-center pb-3 pt-4`}>
+                <CardTitle className={`${colors.text} text-lg`}>Data Management</CardTitle>
                 <button
                   onClick={exportToCsv}
-                  className="px-3 py-1 bg-[#404249] hover:bg-[#4752c4] text-white rounded-md flex items-center space-x-1 border border-[#1e1f22] absolute right-6"
+                  className={`${colors.buttonBgPrimary} px-3 py-1 rounded-md flex items-center absolute right-8`}
                 >
                   <Download className="h-4 w-4 mr-1" />
                   <span>Export CSV</span>
                 </button>
               </CardHeader>
-              <CardContent className="py-6 px-6">
-                <div className="text-[#b5bac1]">
+              <CardContent className={`py-6 px-6`}>
+                <div className={`${colors.text}`}>
                   <p>Your weight data is stored locally in your browser. You can export it as a CSV file for backup or analysis in other applications.</p>
-                  <div className="mt-4 bg-[#2b2d31] p-4 rounded-md">
-                    <div className="text-sm">
-                      <span className="text-[#f2f3f5] font-medium">Current data summary:</span>
-                      <ul className="mt-2 space-y-1">
-                        <li>• Total entries: {entries.length}</li>
-                        <li>• Date range: {format(formattedEntries[formattedEntries.length-1].dateObj, "MMM d, yyyy")} to {format(formattedEntries[0].dateObj, "MMM d, yyyy")}</li>
-                        <li>• Weight range: {Math.min(...formattedEntries.map(e => e.weight))} kg to {Math.max(...formattedEntries.map(e => e.weight))} kg</li>
-                      </ul>
+                  {formattedEntries.length > 1 ? (
+                    <div className="mt-4 bg-[#2b2d31] p-4 rounded-md">
+                      <div className="text-sm">
+                        <span className={`${colors.text} font-medium`}>Current data summary:</span>
+                        <ul className="mt-2 space-y-1">
+                          <li>• Total entries: {entries.length}</li>
+                          <li>• Date range: {dateFormat(formattedEntries[formattedEntries.length-1].dateObj, "MMM d, yyyy")} to {dateFormat(formattedEntries[0].dateObj, "MMM d, yyyy")}</li>
+                          <li>• Weight range: {Math.min(...formattedEntries.map(e => e.weight))} kg to {Math.max(...formattedEntries.map(e => e.weight))} kg</li>
+                        </ul>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="mt-4 bg-[#2b2d31] p-4 rounded-md">
+                      <div className="text-sm">
+                        <span className={`${colors.text} font-medium`}>Current data summary:</span>
+                        <ul className="mt-2 space-y-1">
+                          <li>• Total entries: {entries.length}</li>
+                        </ul>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -877,11 +872,11 @@ export default function WeightTracker() {
           
           {/* Statistics Card with Average Tables */}
           {entries.length > 1 && (
-            <Card className="bg-[#313338] border-[#1e1f22] shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2">
-              <CardHeader className="border-b border-[#1e1f22] pb-3 pt-4 flex justify-center">
-                <CardTitle className="text-[#f2f3f5] text-lg">Weight Averages</CardTitle>
+            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2`}>
+              <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
+                <CardTitle className={`${colors.text} text-lg`}>Weight Averages</CardTitle>
               </CardHeader>
-              <CardContent className="py-6 px-6">
+              <CardContent className={`py-6 px-6`}>
                 <div className="overflow-x-auto">
                   <Table className="w-full">
                     <TableHeader>
@@ -898,17 +893,12 @@ export default function WeightTracker() {
                     <TableBody>
                       {sevenDayAvg.hasData && (
                         <TableRow>
-                          <TableCell className="font-medium">7 Days</TableCell>
+                          <TableCell className={`${colors.text} font-medium`}>7 Days</TableCell>
                           <TableCell>{sevenDayAvg.startDate} - {sevenDayAvg.endDate}</TableCell>
                           <TableCell>{sevenDayAvg.startWeight} kg</TableCell>
                           <TableCell>{sevenDayAvg.endWeight} kg</TableCell>
                           <TableCell 
-                            className={parseFloat(sevenDayAvg.totalChange) < 0 
-                              ? "text-[#57f287]" 
-                              : parseFloat(sevenDayAvg.totalChange) > 0 
-                                ? "text-[#ed4245]" 
-                                : ""
-                            }
+                            className={`${parseFloat(sevenDayAvg.totalChange) < 0 ? colors.positive : parseFloat(sevenDayAvg.totalChange) > 0 ? colors.negative : ""}`}
                           >
                             {sevenDayAvg.totalChange > 0 ? "+" : ""}{sevenDayAvg.totalChange} kg
                           </TableCell>
@@ -923,17 +913,12 @@ export default function WeightTracker() {
                       
                       {fourteenDayAvg.hasData && (
                         <TableRow>
-                          <TableCell className="font-medium">14 Days</TableCell>
+                          <TableCell className={`${colors.text} font-medium`}>14 Days</TableCell>
                           <TableCell>{fourteenDayAvg.startDate} - {fourteenDayAvg.endDate}</TableCell>
                           <TableCell>{fourteenDayAvg.startWeight} kg</TableCell>
                           <TableCell>{fourteenDayAvg.endWeight} kg</TableCell>
                           <TableCell 
-                            className={parseFloat(fourteenDayAvg.totalChange) < 0 
-                              ? "text-[#57f287]" 
-                              : parseFloat(fourteenDayAvg.totalChange) > 0 
-                                ? "text-[#ed4245]" 
-                                : ""
-                            }
+                            className={`${parseFloat(fourteenDayAvg.totalChange) < 0 ? colors.positive : parseFloat(fourteenDayAvg.totalChange) > 0 ? colors.negative : ""}`}
                           >
                             {fourteenDayAvg.totalChange > 0 ? "+" : ""}{fourteenDayAvg.totalChange} kg
                           </TableCell>
@@ -948,17 +933,12 @@ export default function WeightTracker() {
                       
                       {thirtyDayAvg.hasData && (
                         <TableRow>
-                          <TableCell className="font-medium">30 Days</TableCell>
+                          <TableCell className={`${colors.text} font-medium`}>30 Days</TableCell>
                           <TableCell>{thirtyDayAvg.startDate} - {thirtyDayAvg.endDate}</TableCell>
                           <TableCell>{thirtyDayAvg.startWeight} kg</TableCell>
                           <TableCell>{thirtyDayAvg.endWeight} kg</TableCell>
                           <TableCell 
-                            className={parseFloat(thirtyDayAvg.totalChange) < 0 
-                              ? "text-[#57f287]" 
-                              : parseFloat(thirtyDayAvg.totalChange) > 0 
-                                ? "text-[#ed4245]" 
-                                : ""
-                            }
+                            className={`${parseFloat(thirtyDayAvg.totalChange) < 0 ? colors.positive : parseFloat(thirtyDayAvg.totalChange) > 0 ? colors.negative : ""}`}
                           >
                             {thirtyDayAvg.totalChange > 0 ? "+" : ""}{thirtyDayAvg.totalChange} kg
                           </TableCell>
@@ -987,11 +967,11 @@ export default function WeightTracker() {
           
           {/* Weight Distribution Card */}
           {entries.length > 5 && (
-            <Card className="bg-[#313338] border-[#1e1f22] shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2">
-              <CardHeader className="border-b border-[#1e1f22] pb-3 pt-4 flex justify-center">
-                <CardTitle className="text-[#f2f3f5] text-lg">Weight Distribution</CardTitle>
+            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2`}>
+              <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
+                <CardTitle className={`${colors.text} text-lg`}>Weight Distribution</CardTitle>
               </CardHeader>
-              <CardContent className="py-6 px-6">
+              <CardContent className={`py-6 px-6`}>
                 <div className="h-[200px]">
                   {typeof window !== 'undefined' && (
                     <Chart 
@@ -1018,12 +998,23 @@ export default function WeightTracker() {
                           enabled: false
                         },
                         grid: {
+                          show: false,  // Hide all grid lines
                           borderColor: '#1e1f22',
                           strokeDashArray: 3,
-                          row: {
-                            colors: ['transparent'],
-                            opacity: 0.5
+                          padding: {
+                            left: 0,
+                            right: 0
                           },
+                          xaxis: {
+                            lines: {
+                              show: false
+                            }
+                          },
+                          yaxis: {
+                            lines: {
+                              show: false
+                            }
+                          }
                         },
                         xaxis: {
                           categories: getWeightRanges(),
