@@ -11,6 +11,8 @@ A simple yet powerful weight tracking application built with React and ApexChart
 - **BMI Calculator**: Calculate and categorize your BMI based on your height and weight
 - **Goal Forecasting**: Predict when you'll reach your goal weight based on current trends
 - **Data Management**: Export your data to CSV for backup or further analysis
+- **Mobile Responsive**: Optimized for both desktop and mobile viewing
+- **Shareable View Mode**: Share your progress with others via a unique link
 
 ## Getting Started
 
@@ -45,12 +47,47 @@ A simple yet powerful weight tracking application built with React and ApexChart
 3. View your weight history, trends, and statistics in the various cards
 4. Export your data as needed for backup
 
+## Deployment
+
+### Building for Production
+
+Build the application for production:
+
+```bash
+npm run build
+```
+
+This will create a static export in the `out` directory that can be deployed to any static hosting service.
+
+### Deploying to a Subdirectory
+
+If you need to deploy to a subdirectory (e.g., `example.com/weight-tracker/`), uncomment and edit the `basePath` setting in `next.config.js`:
+
+```js
+// next.config.js
+const nextConfig = {
+  // ...
+  basePath: '/weight-tracker',
+  // ...
+}
+```
+
+### Hosting Services
+
+You can deploy this application to:
+- GitHub Pages
+- Netlify
+- Vercel
+- Any static file hosting service
+
 ## Technologies Used
 
 - React
+- Next.js for static site generation
 - ApexCharts for data visualization
 - date-fns for date manipulation
 - localStorage for data persistence
+- Tailwind CSS for styling
 
 ## License
 
