@@ -1,15 +1,15 @@
 import ShareFallbackClient from './client';
 
-// This function is required for Next.js static exports with the App Router
-// It tells Next.js to statically generate this route
-export async function generateStaticParams() {
-  // We don't have any dynamic segments in this route
-  // Just generate one static version of this page
+// Required for static generation with the App Router
+export function generateStaticParams() {
   return [{}];
 }
 
-// Server component for the share-fallback page
-// Static export will generate this, and the client component will handle the rest
+// Plain static version for pre-rendering
 export default function ShareFallbackPage() {
-  return <ShareFallbackClient />;
+  return (
+    <div>
+      <ShareFallbackClient />
+    </div>
+  );
 } 

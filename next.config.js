@@ -6,6 +6,10 @@ const nextConfig = {
     unoptimized: true,
   },
   trailingSlash: true,
+  // Disable strict mode for searchParams during static export
+  experimental: {
+    missingSuspenseWithCSRBailout: false
+  }
 }
 
 module.exports = nextConfig 

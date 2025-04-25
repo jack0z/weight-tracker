@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ViewMode from '../../components/ViewMode';
 
-export default function ShareFallbackClient() {
+// Use a separate component for the search params to properly handle Suspense
+function ShareContent() {
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [viewData, setViewData] = useState(null);
@@ -133,5 +134,27 @@ export default function ShareFallbackClient() {
       isLoading={isLoading}
       error={error}
     />
+  );
+}
+
+// Wrapper component with Suspense
+export default function ShareFallbackClient() {
+  return (
+    <Suspense fallback={
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontFamily: 'system-ui, sans-serif'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <h1>Loading Shared Weight Tracker...</h1>
+          <p>Please wait while we load the shared data.</p>
+        </div>
+      </div>
+    }>
+      <ShareContent />
+    </Suspense>
   );
 } 
