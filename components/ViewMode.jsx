@@ -1,29 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Sun, Moon, TrendingDown, TrendingUp, Minus, AlertTriangle, Loader2 } from "lucide-react";
-import { format } from "date-fns";
-import { Toaster } from 'sonner';
-import dynamic from "next/dynamic";
-import * as Stats from '../stats.js';
-
-// Dynamically import ApexCharts with no SSR to avoid hydration issues
-const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
+import { Sun, Moon } from "lucide-react";
 
 /**
- * View-only mode component for shared weight tracker data
- *
- * @param {Object} props - Component props
- * @param {Array} props.entries - Weight entries
- * @param {string|number} props.startWeight - Starting weight
- * @param {string|number} props.goalWeight - Goal weight
- * @param {string|number} props.height - User height
- * @param {string} props.theme - Current theme
- * @param {string} props.sharedBy - Username who shared the data
- * @param {boolean} props.isLoading - Whether data is loading
- * @param {string} props.error - Error message if load failed
- * @param {function} props.onThemeToggle - Function to toggle theme
- * @param {function} props.onExit - Function to exit view mode
+ * Simplified view-only mode component for shared weight tracker data
  */
 export default function ViewMode({ 
   entries = [], 
@@ -37,234 +16,29 @@ export default function ViewMode({
   onThemeToggle,
   onExit
 }) {
-  const [formattedEntries, setFormattedEntries] = useState([]);
-  const [chartData, setChartData] = useState(null);
   const [isClient, setIsClient] = useState(false);
-  const [localError, setLocalError] = useState("");
-  const [showChart, setShowChart] = useState(false);
-  const [showBmi, setShowBmi] = useState(false);
-  const [bmiData, setBmiData] = useState({ value: null, category: null, color: null });
-
+  
   // Set isClient once component mounts
   useEffect(() => {
     setIsClient(true);
-  }, []);
-
-  // Apply theme directly to document
-  useEffect(() => {
-    if (isClient) {
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
-  }, [theme, isClient]);
-
-  // Format entries
-  useEffect(() => {
-    if (!isClient) return;
     
-    try {
-      if (entries && Array.isArray(entries) && entries.length > 0) {
-        // Format entries with validation
-        const formatted = entries
-          .filter(e => e && e.date && e.weight) // Ensure we have valid entries
-          .map(e => {
-            try {
-              const dateObj = new Date(e.date);
-              // Ensure date is valid
-              if (isNaN(dateObj.getTime())) {
-                console.warn("Invalid date in entry:", e);
-                return null;
-              }
-              
-              // Parse weight to ensure it's a number
-              const weightNum = parseFloat(e.weight);
-              if (isNaN(weightNum)) {
-                console.warn("Invalid weight in entry:", e);
-                return null;
-              }
-                
-              return {
-                ...e,
-                dateFormatted: format(dateObj, "MMM d, yyyy"),
-                dayFormatted: format(dateObj, "EEEE"),
-                dateObj,
-                weight: String(weightNum) // Ensure weight is a string
-              };
-            } catch (error) {
-              console.error("Error formatting entry:", error, e);
-              return null;
-            }
-          })
-          .filter(Boolean) // Remove any null entries from errors
-          .sort((a, b) => b.dateObj - a.dateObj); // Sort by date, newest first
-        
-        setFormattedEntries(formatted);
-      }
-    } catch (error) {
-      console.error("Error processing entries:", error);
-      setLocalError("Error preparing data: " + error.message);
+    // Apply theme to document
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
     }
-  }, [entries, isClient]);
+  }, [theme]);
 
-  // Prepare chart data separately after entries are formatted
-  useEffect(() => {
-    if (!isClient || formattedEntries.length === 0) return;
-    
-    try {
-      // Prepare chart data
-      const chartColors = theme === 'dark' 
-        ? ['#8DA101', '#7289da', '#43b581'] 
-        : ['#8DA101', '#4e5d94', '#2e7d32'];
-      
-      // Safely create categories and data arrays for the chart
-      const categories = [...formattedEntries]
-        .reverse()
-        .map(e => e.date);
-      
-      const weightData = [...formattedEntries]
-        .reverse()
-        .map(e => parseFloat(e.weight));
-        
-      const chartConfig = {
-        options: {
-          chart: {
-            type: 'area',
-            height: 350,
-            toolbar: {
-              show: false,
-            },
-            background: 'transparent',
-            fontFamily: 'Inter, sans-serif',
-          },
-          colors: chartColors,
-          dataLabels: {
-            enabled: false
-          },
-          stroke: {
-            curve: 'smooth',
-            width: 3,
-          },
-          fill: {
-            type: 'gradient',
-            gradient: {
-              shadeIntensity: 1,
-              opacityFrom: 0.7,
-              opacityTo: 0.2,
-              stops: [0, 90, 100]
-            }
-          },
-          grid: {
-            borderColor: theme === 'dark' ? '#1e1f22' : '#e5e7eb',
-            strokeDashArray: 3,
-            row: {
-              colors: ['transparent'],
-              opacity: 0.5
-            },
-          },
-          xaxis: {
-            type: 'datetime',
-            categories: categories,
-            labels: {
-              style: {
-                colors: theme === 'dark' ? '#b5bac1' : '#6b7280',
-              },
-              format: 'MMM dd',
-            },
-            tooltip: {
-              enabled: false
-            }
-          },
-          yaxis: {
-            labels: {
-              formatter: function(val) {
-                return val.toFixed(1) + ' kg';
-              },
-              style: {
-                colors: theme === 'dark' ? '#b5bac1' : '#6b7280',
-              },
-            },
-          },
-          tooltip: {
-            x: {
-              format: 'MMM dd, yyyy'
-            },
-            y: {
-              formatter: function(val) {
-                return val.toFixed(1) + ' kg';
-              }
-            }
-          }
-        },
-        series: [{
-          name: 'Weight',
-          data: weightData
-        }]
-      };
-      
-      setChartData(chartConfig);
-      
-      // Add a small delay to ensure chart rendering occurs after state updates are processed
-      setTimeout(() => {
-        setShowChart(true);
-      }, 300);
-    } catch (error) {
-      console.error("Error preparing chart data:", error);
-      setLocalError("Error preparing chart data: " + error.message);
-    }
-  }, [formattedEntries, theme, isClient]);
-
-  // Calculate BMI separately after entries are formatted
-  useEffect(() => {
-    if (!isClient || formattedEntries.length === 0 || !height) return;
-    
-    try {
-      const weight = formattedEntries[0].weight;
-      const bmiValue = Stats.calculateBMI(weight, height);
-      
-      if (bmiValue) {
-        const bmiCategory = Stats.getBMICategory(bmiValue, theme);
-        setBmiData({
-          value: bmiValue,
-          category: bmiCategory.category,
-          color: bmiCategory.color
-        });
-        
-        setTimeout(() => {
-          setShowBmi(true);
-        }, 200);
-      }
-    } catch (error) {
-      console.error("Error calculating BMI:", error);
-      // Don't set an error, just don't show BMI
-    }
-  }, [formattedEntries, height, theme, isClient]);
-
-  // Define colors based on theme
-  const colors = {
-    bg: theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#F3EAD3]',
-    cardBg: theme === 'dark' ? 'bg-[#313338]' : 'bg-[#EAE4CA]',
-    border: theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]',
-    text: theme === 'dark' ? 'text-[#e3e5e8]' : 'text-[#5C6A72]',
-    textMuted: theme === 'dark' ? 'text-[#b5bac1]' : 'text-[#829181]',
-    buttonBgPrimary: theme === 'dark' ? 'bg-[#5865f2] hover:bg-[#4752c4]' : 'bg-[#8DA101] hover:bg-[#798901]',
-    buttonBgSecondary: theme === 'dark' ? 'bg-[#4f545c] hover:bg-[#5d6269]' : 'bg-[#939F91] hover:bg-[#8A948C]',
-    positive: theme === 'dark' ? 'text-[#57f287]' : 'text-[#126134]',
-    negative: theme === 'dark' ? 'text-[#ed4245]' : 'text-[#F85552]',
-  };
-  
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center p-3 sm:p-4 md:p-6">
-        <div className="card w-full max-w-md bg-base-100 shadow-xl">
-          <div className="card-body">
+      <div className="flex h-screen items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 w-full max-w-md shadow-xl rounded-lg">
+          <div className="p-6">
             <div className="flex flex-col items-center justify-center space-y-4">
-              <Loader2 className="animate-spin text-primary h-10 w-10" />
-              <h2 className="text-xl font-bold">Loading shared data...</h2>
-              <p className="text-center">Please wait while we fetch the shared weight tracker data.</p>
+              <div className="animate-spin h-10 w-10 border-4 border-blue-500 rounded-full border-t-transparent"></div>
+              <h2 className="text-xl font-bold dark:text-white">Loading shared data...</h2>
             </div>
           </div>
         </div>
@@ -273,16 +47,21 @@ export default function ViewMode({
   }
   
   // Error state
-  if (error || localError) {
+  if (error) {
     return (
-      <div className="flex h-screen items-center justify-center p-3 sm:p-4 md:p-6">
-        <div className="card w-full max-w-md bg-base-100 shadow-xl">
-          <div className="card-body">
+      <div className="flex h-screen items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 w-full max-w-md shadow-xl rounded-lg">
+          <div className="p-6">
             <div className="flex flex-col items-center justify-center space-y-4">
-              <div className="text-error text-5xl">❌</div>
-              <h2 className="text-xl font-bold">Error loading data</h2>
-              <p className="text-center">{error || localError}</p>
-              <button className="btn btn-primary" onClick={onExit}>Go back to app</button>
+              <div className="text-error text-5xl">⚠️</div>
+              <h2 className="text-xl font-bold dark:text-white">Error loading data</h2>
+              <p className="text-center dark:text-gray-300">{error}</p>
+              <button 
+                className="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600" 
+                onClick={onExit}
+              >
+                Go back to app
+              </button>
             </div>
           </div>
         </div>
@@ -291,16 +70,21 @@ export default function ViewMode({
   }
   
   // No data state
-  if (!entries || entries.length === 0 || formattedEntries.length === 0) {
+  if (!entries || entries.length === 0) {
     return (
-      <div className="flex h-screen items-center justify-center p-3 sm:p-4 md:p-6">
-        <div className="card w-full max-w-md bg-base-100 shadow-xl">
-          <div className="card-body">
+      <div className="flex h-screen items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 w-full max-w-md shadow-xl rounded-lg">
+          <div className="p-6">
             <div className="flex flex-col items-center justify-center space-y-4">
               <div className="text-warning text-5xl">⚠️</div>
-              <h2 className="text-xl font-bold">No data available</h2>
-              <p className="text-center">There are no valid weight entries to display.</p>
-              <button className="btn btn-primary" onClick={onExit}>Go back to app</button>
+              <h2 className="text-xl font-bold dark:text-white">No data available</h2>
+              <p className="text-center dark:text-gray-300">There are no weight entries to display.</p>
+              <button 
+                className="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600" 
+                onClick={onExit}
+              >
+                Go back to app
+              </button>
             </div>
           </div>
         </div>
@@ -309,231 +93,74 @@ export default function ViewMode({
   }
 
   return (
-    <div className={`min-h-screen ${colors.bg} ${colors.text} p-3 sm:p-4 md:p-6`}>
-      <Toaster 
-        position="top-right" 
-        toastOptions={{
-          style: {
-            background: theme === 'dark' ? "#313338" : "#ffffff",
-            color: theme === 'dark' ? "#e3e5e8" : "#374151",
-            border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.2)"
-          }
-        }}
-      />
-      
-      <div className="max-w-6xl mx-auto">
-        {/* Header with info and controls */}
-        <div className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mb-4 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
-          <div className="flex items-center gap-1 mb-2 sm:mb-0">
-            <h2 className={`text-lg sm:text-xl md:text-2xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
-              Weight Tracker
-            </h2>
-            {sharedBy && (
-              <span className={`ml-2 text-xs sm:text-sm ${colors.textMuted}`}>(Shared by {sharedBy})</span>
-            )}
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white p-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Simple header */}
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">Weight Tracker</h1>
+            {sharedBy && <p className="text-sm opacity-70">Shared by {sharedBy}</p>}
           </div>
           
-          <div className="flex items-center self-end sm:self-auto">
-            <button
-              onClick={onThemeToggle}
-              className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
-              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            >
-              {theme === 'dark' ? (
-                <Sun size={16} className="text-white" />
-              ) : (
-                <Moon size={16} className="text-white" />
-              )}
-            </button>
-          </div>
-        </div>
-        
-        {/* Weight Chart - View Only */}
-        <div className={`card ${colors.cardBg} ${colors.border} border shadow-md mb-6`}>
-          <div className="card-body p-3 sm:p-4 md:p-5">
-            <div className="flex justify-between items-center mb-2">
-              <h2 className={`card-title text-base sm:text-lg ${colors.text}`}>Weight Chart</h2>
-            </div>
-            
-            {isClient && chartData && showChart ? (
-              <div className="-mx-3 sm:-mx-2 md:-mx-1" id="chart-container">
-                {(() => {
-                  try {
-                    return (
-                      <Chart
-                        options={chartData.options}
-                        series={chartData.series}
-                        type="area"
-                        height={350}
-                      />
-                    );
-                  } catch (error) {
-                    console.error("Error rendering chart:", error);
-                    return (
-                      <div className="flex flex-col justify-center items-center h-[350px]">
-                        <AlertTriangle className="h-8 w-8 text-warning mb-2" />
-                        <p className={`text-sm ${colors.textMuted} text-center`}>
-                          Error rendering chart. Please try refreshing the page.
-                        </p>
-                      </div>
-                    );
-                  }
-                })()}
-              </div>
+          <button
+            onClick={onThemeToggle}
+            className="p-2 rounded-full bg-gray-300 dark:bg-gray-700"
+          >
+            {theme === 'dark' ? (
+              <Sun size={20} />
             ) : (
-              <div className="flex justify-center items-center h-[350px]">
-                <Loader2 className="animate-spin h-8 w-8 text-primary" />
-              </div>
+              <Moon size={20} />
             )}
+          </button>
+        </div>
+        
+        {/* Basic stats cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="p-4 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow">
+            <h2 className="text-lg font-semibold mb-2">Current Weight</h2>
+            <p className="text-2xl font-bold">
+              {entries[0]?.weight ? `${parseFloat(entries[0].weight).toFixed(1)} kg` : '-'}
+            </p>
+          </div>
+          
+          <div className="p-4 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow">
+            <h2 className="text-lg font-semibold mb-2">Goal Weight</h2>
+            <p className="text-2xl font-bold">{goalWeight ? `${goalWeight} kg` : '-'}</p>
           </div>
         </div>
         
-        {/* Stats cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {/* Current Weight */}
-          <Card className={`border ${colors.cardBg} ${colors.border}`}>
-            <CardHeader className="pb-2">
-              <CardTitle className={`text-sm ${colors.text}`}>Current Weight</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className={`text-2xl font-bold ${colors.text}`}>
-                {formattedEntries.length > 0 ? `${parseFloat(formattedEntries[0].weight).toFixed(1)} kg` : '-'}
-              </p>
-              <p className={`text-xs ${colors.textMuted}`}>
-                {formattedEntries.length > 0 ? formattedEntries[0].dateFormatted : '-'}
-              </p>
-            </CardContent>
-          </Card>
+        {/* Simple weight history list */}
+        <div className="p-4 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow mb-6">
+          <h2 className="text-lg font-semibold mb-4">Weight History</h2>
           
-          {/* Total Change */}
-          <Card className={`border ${colors.cardBg} ${colors.border}`}>
-            <CardHeader className="pb-2">
-              <CardTitle className={`text-sm ${colors.text}`}>Total Change</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {formattedEntries.length > 0 && startWeight ? (
-                <>
-                  <div className="flex items-center">
-                    <p className={`text-2xl font-bold ${parseFloat(formattedEntries[0].weight) < parseFloat(startWeight) ? colors.positive : parseFloat(formattedEntries[0].weight) > parseFloat(startWeight) ? colors.negative : colors.text}`}>
-                      {(parseFloat(formattedEntries[0].weight) - parseFloat(startWeight)).toFixed(1)} kg
-                    </p>
-                    {parseFloat(formattedEntries[0].weight) < parseFloat(startWeight) ? (
-                      <TrendingDown className={`ml-1 h-5 w-5 ${colors.positive}`} />
-                    ) : parseFloat(formattedEntries[0].weight) > parseFloat(startWeight) ? (
-                      <TrendingUp className={`ml-1 h-5 w-5 ${colors.negative}`} />
-                    ) : (
-                      <Minus className={`ml-1 h-5 w-5 ${colors.text}`} />
-                    )}
-                  </div>
-                  <p className={`text-xs ${colors.textMuted}`}>
-                    Since starting weight
-                  </p>
-                </>
-              ) : (
-                <p className={`text-2xl font-bold ${colors.text}`}>-</p>
-              )}
-            </CardContent>
-          </Card>
-          
-          {/* 7-Day Average */}
-          <Card className={`border ${colors.cardBg} ${colors.border}`}>
-            <CardHeader className="pb-2">
-              <CardTitle className={`text-sm ${colors.text}`}>Average Weight</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {formattedEntries.length > 0 ? (
-                <>
-                  <p className={`text-2xl font-bold ${colors.text}`}>
-                    {formattedEntries.length >= 7 
-                      ? Stats.calculateAverage(formattedEntries, 7).toFixed(1) 
-                      : formattedEntries.length > 0 
-                        ? Stats.calculateAverage(formattedEntries, formattedEntries.length).toFixed(1) 
-                        : "-"} kg
-                  </p>
-                  <p className={`text-xs ${colors.textMuted}`}>
-                    {formattedEntries.length >= 7 ? "Last 7 days" : `Last ${formattedEntries.length} days`}
-                  </p>
-                </>
-              ) : (
-                <p className={`text-2xl font-bold ${colors.text}`}>-</p>
-              )}
-            </CardContent>
-          </Card>
-          
-          {/* BMI */}
-          <Card className={`border ${colors.cardBg} ${colors.border}`}>
-            <CardHeader className="pb-2">
-              <CardTitle className={`text-sm ${colors.text}`}>BMI</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {showBmi && bmiData.value ? (
-                <>
-                  <p className={`text-2xl font-bold ${colors.text}`}>
-                    {bmiData.value}
-                  </p>
-                  <p className={`text-xs ${bmiData.color}`}>
-                    {bmiData.category}
-                  </p>
-                </>
-              ) : (
-                <p className={`text-2xl font-bold ${colors.text}`}>-</p>
-              )}
-            </CardContent>
-          </Card>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-2">Date</th>
+                  <th className="text-left py-2">Weight (kg)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map(entry => (
+                  <tr key={entry.date} className="border-b border-gray-200 dark:border-gray-700">
+                    <td className="py-2">{entry.date}</td>
+                    <td className="py-2">{entry.weight}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
         
-        {/* Weight History Table */}
-        <div className={`card ${colors.cardBg} ${colors.border} border shadow-md mb-6`}>
-          <div className="card-body p-3 sm:p-4 md:p-5">
-            <div className="flex justify-between items-center mb-2">
-              <h2 className={`card-title text-base sm:text-lg ${colors.text}`}>Weight History</h2>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className={colors.textMuted}>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Weight</TableHead>
-                    <TableHead>Change</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {formattedEntries.map((entry, index) => {
-                    const prevWeight = index < formattedEntries.length - 1 ? parseFloat(formattedEntries[index + 1].weight) : null;
-                    const weightChange = prevWeight !== null ? parseFloat(entry.weight) - prevWeight : null;
-                    
-                    return (
-                      <TableRow key={entry.date} className="hover:bg-opacity-50 hover:bg-gray-100 dark:hover:bg-opacity-10 dark:hover:bg-gray-700">
-                        <TableCell className="font-medium">
-                          {entry.dateFormatted}
-                          <div className={`text-xs ${colors.textMuted}`}>
-                            {entry.dayFormatted}
-                          </div>
-                        </TableCell>
-                        <TableCell>{parseFloat(entry.weight).toFixed(1)} kg</TableCell>
-                        <TableCell className={weightChange === null ? colors.text : weightChange < 0 ? colors.positive : weightChange > 0 ? colors.negative : colors.text}>
-                          {weightChange !== null ? (
-                            <div className="flex items-center">
-                              {weightChange.toFixed(1)} kg
-                              {weightChange < 0 ? (
-                                <TrendingDown className="ml-1 h-4 w-4" />
-                              ) : weightChange > 0 ? (
-                                <TrendingUp className="ml-1 h-4 w-4" />
-                              ) : (
-                                <Minus className="ml-1 h-4 w-4" />
-                              )}
-                            </div>
-                          ) : '-'}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
+        {/* Footer with back button */}
+        <div className="flex justify-center mb-4">
+          <button 
+            onClick={onExit} 
+            className="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Back to App
+          </button>
         </div>
       </div>
     </div>
