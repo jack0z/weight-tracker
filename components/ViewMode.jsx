@@ -200,7 +200,7 @@ export default function ViewMode({
   };
 
   return (
-    <div className={`min-h-screen ${colors.bg} ${colors.text} p-4 md:p-6`}>
+    <div className={`min-h-screen ${colors.bg} ${colors.text} p-3 sm:p-4 md:p-6`}>
       <Toaster 
         position="top-right" 
         toastOptions={{
@@ -215,15 +215,15 @@ export default function ViewMode({
       
       <div className="max-w-6xl mx-auto">
         {/* Header with info and controls */}
-        <div className={`flex justify-between items-center mb-4 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
-          <div className="flex items-center gap-1">
-            <h2 className={`text-xl sm:text-2xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+        <div className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mb-4 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+          <div className="flex items-center gap-1 mb-2 sm:mb-0">
+            <h2 className={`text-lg sm:text-xl md:text-2xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
               Weight Tracker
             </h2>
-            <span className={`ml-2 text-sm ${colors.textMuted}`}>(Shared by {sharedBy})</span>
+            <span className={`ml-2 text-xs sm:text-sm ${colors.textMuted}`}>(Shared by {sharedBy})</span>
           </div>
           
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center self-end sm:self-auto">
             <button
               onClick={onThemeToggle}
               className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
@@ -238,21 +238,22 @@ export default function ViewMode({
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6">
           {/* Weight Chart - View Only */}
-          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden md:col-span-2`}>
+          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
             <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-              <CardTitle className={`${colors.text} text-lg`}>Weight Chart</CardTitle>
+              <CardTitle className={`${colors.text} text-base sm:text-lg`}>Weight Chart</CardTitle>
             </CardHeader>
-            <CardContent className="py-6 px-6">
-              <div className="h-[300px]">
+            <CardContent className="py-4 px-2 sm:py-6 sm:px-6">
+              <div className="h-[250px] sm:h-[300px]">
                 {entries && entries.length > 0 ? (
                   typeof window !== 'undefined' ? 
                     <Chart 
                       options={chartData.options} 
                       series={chartData.series} 
                       type="area" 
-                      height={300}
+                      height={250}
+                      width="100%"
                     />
                   : <div>Loading chart...</div>
                 ) : (
@@ -266,29 +267,29 @@ export default function ViewMode({
           
           {/* Summary Card - If data available */}
           {entries && entries.length > 0 && (
-            <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden md:col-span-2`}>
+            <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
               <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-                <CardTitle className={`${colors.text} text-lg`}>Summary</CardTitle>
+                <CardTitle className={`${colors.text} text-base sm:text-lg`}>Summary</CardTitle>
               </CardHeader>
-              <CardContent className={`py-6 px-6`}>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-4 rounded-md`}>
-                    <div className="text-sm text-[#b5bac1] mb-1">Current</div>
-                    <div className={`text-xl font-bold ${colors.text}`}>{entries[0].weight} kg</div>
+              <CardContent className={`py-4 px-3 sm:py-6 sm:px-6`}>
+                <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-4">
+                  <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
+                    <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">Current</div>
+                    <div className={`text-lg sm:text-xl font-bold ${colors.text}`}>{entries[0].weight} kg</div>
                   </div>
                   
                   {goalWeight && (
-                    <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-4 rounded-md`}>
-                      <div className="text-sm text-[#b5bac1] mb-1">Goal</div>
-                      <div className={`text-xl font-bold ${colors.text}`}>{goalWeight} kg</div>
+                    <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
+                      <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">Goal</div>
+                      <div className={`text-lg sm:text-xl font-bold ${colors.text}`}>{goalWeight} kg</div>
                     </div>
                   )}
                   
                   {startWeight && (
-                    <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-4 rounded-md`}>
-                      <div className="text-sm text-[#b5bac1] mb-1">Total Change</div>
+                    <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
+                      <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">Total Change</div>
                       <div className="flex items-center">
-                        <span className={`text-xl font-bold ${colors.text} mr-1`}>
+                        <span className={`text-lg sm:text-xl font-bold ${colors.text} mr-1`}>
                           {(entries[0].weight - startWeight).toFixed(1)} kg
                         </span>
                         {getTrendIcon(entries[0].weight - startWeight)}
@@ -298,10 +299,10 @@ export default function ViewMode({
                   
                   {/* BMI Card */}
                   {height && calculateBMI() && (
-                    <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-4 rounded-md`}>
-                      <div className="text-sm text-[#b5bac1] mb-1">BMI</div>
-                      <div className={`text-xl font-bold ${colors.text}`}>{calculateBMI()}</div>
-                      <div className={`text-sm ${getBMICategory(calculateBMI()).color} mt-1`}>
+                    <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
+                      <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">BMI</div>
+                      <div className={`text-lg sm:text-xl font-bold ${colors.text}`}>{calculateBMI()}</div>
+                      <div className={`text-xs sm:text-sm ${getBMICategory(calculateBMI()).color} mt-1`}>
                         {getBMICategory(calculateBMI()).category}
                       </div>
                     </div>
@@ -312,21 +313,21 @@ export default function ViewMode({
           )}
           
           {/* Weight History - View Only */}
-          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden md:col-span-2`}>
+          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
             <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-              <CardTitle className={`${colors.text} text-lg`}>Weight History</CardTitle>
-              <div className={`text-sm ${colors.textMuted} ml-2`}>({formattedEntries.length} entries)</div>
+              <CardTitle className={`${colors.text} text-base sm:text-lg`}>Weight History</CardTitle>
+              <div className={`text-xs sm:text-sm ${colors.textMuted} ml-2`}>({formattedEntries.length} entries)</div>
             </CardHeader>
-            <CardContent className="py-6 px-6">
-              <div className="overflow-x-auto max-h-[350px]">
+            <CardContent className="py-4 px-2 sm:py-6 sm:px-6">
+              <div className="overflow-x-auto max-h-[250px] sm:max-h-[350px]">
                 {formattedEntries.length > 0 ? (
                   <Table className="w-full">
                     <TableHeader className={`sticky top-0 ${theme === 'dark' ? 'bg-[#313338]' : 'bg-[#EAE4CA]'} z-10`}>
                       <TableRow>
-                        <TableHead className="w-[150px]">Date</TableHead>
-                        <TableHead>Day</TableHead>
-                        <TableHead>Weight (kg)</TableHead>
-                        <TableHead>Change</TableHead>
+                        <TableHead className="w-[100px] sm:w-[150px] text-xs sm:text-sm">Date</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Day</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Weight (kg)</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Change</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -341,10 +342,10 @@ export default function ViewMode({
                         
                         return (
                           <TableRow key={entry.id || entry.date}>
-                            <TableCell className={`${colors.text}`}>{entry.dateFormatted}</TableCell>
-                            <TableCell className={`${colors.text}`}>{entry.dayFormatted}</TableCell>
-                            <TableCell className={`${colors.text} font-medium`}>{entry.weight}</TableCell>
-                            <TableCell className={`${changeColor} flex items-center`}>
+                            <TableCell className={`${colors.text} text-xs sm:text-sm`}>{entry.dateFormatted}</TableCell>
+                            <TableCell className={`${colors.text} text-xs sm:text-sm`}>{entry.dayFormatted}</TableCell>
+                            <TableCell className={`${colors.text} font-medium text-xs sm:text-sm`}>{entry.weight}</TableCell>
+                            <TableCell className={`${changeColor} flex items-center text-xs sm:text-sm`}>
                               {change !== "--" ? (
                                 <>
                                   <span>{change > 0 ? "+" + change : change}</span>
@@ -368,18 +369,18 @@ export default function ViewMode({
           
           {/* Weight Distribution Card */}
           {entries.length >= 5 && (
-            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2`}>
+            <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden mt-2`}>
               <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-                <CardTitle className={`${colors.text} text-lg`}>Weight Distribution</CardTitle>
+                <CardTitle className={`${colors.text} text-base sm:text-lg`}>Weight Distribution</CardTitle>
               </CardHeader>
-              <CardContent className={`py-6 px-6`}>
-                <div className="h-[200px]">
+              <CardContent className={`py-4 px-2 sm:py-6 sm:px-6`}>
+                <div className="h-[180px] sm:h-[200px]">
                   {typeof window !== 'undefined' && (
                     <Chart 
                       options={{
                         chart: {
                           type: 'bar',
-                          height: 200,
+                          height: 180,
                           toolbar: {
                             show: false,
                           },
@@ -422,6 +423,7 @@ export default function ViewMode({
                           labels: {
                             style: {
                               colors: '#b5bac1',
+                              fontSize: '10px',
                             },
                             rotate: -45,
                             rotateAlways: false,
@@ -439,12 +441,14 @@ export default function ViewMode({
                           title: {
                             text: 'Days',
                             style: {
-                              color: '#b5bac1'
+                              color: '#b5bac1',
+                              fontSize: '10px',
                             }
                           },
                           labels: {
                             style: {
                               colors: '#b5bac1',
+                              fontSize: '10px',
                             },
                           },
                         },
@@ -453,14 +457,39 @@ export default function ViewMode({
                           y: {
                             formatter: (value) => `${value} days`
                           }
-                        }
+                        },
+                        responsive: [
+                          {
+                            breakpoint: 640,
+                            options: {
+                              chart: {
+                                height: 180
+                              },
+                              xaxis: {
+                                labels: {
+                                  style: {
+                                    fontSize: '8px'
+                                  },
+                                  rotate: -45
+                                }
+                              },
+                              yaxis: {
+                                labels: {
+                                  style: {
+                                    fontSize: '8px'
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
                       }} 
                       series={[{
                         name: 'Days at Weight',
                         data: getWeightDistribution()
                       }]} 
                       type="bar" 
-                      height={200}
+                      height={window.innerWidth < 640 ? 180 : 200}
                     />
                   )}
                 </div>

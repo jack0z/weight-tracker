@@ -296,6 +296,54 @@ export default function WeightTracker() {
     return Stats.getBMICategory(bmi, theme);
   };
 
+  // Calculate progress as percentage towards goal weight
+  const calculateProgress = (currentWeight, goalWeight) => {
+    if (!currentWeight || !goalWeight || isNaN(goalWeight)) return '-';
+    
+    // Convert to numbers to ensure proper calculation
+    currentWeight = parseFloat(currentWeight);
+    goalWeight = parseFloat(goalWeight);
+    
+    // If goal and start weights are the same
+    if (startWeight === goalWeight) return '100%';
+    
+    // If no start weight is defined, can't calculate progress
+    if (!startWeight) return '-';
+    
+    const totalToLose = Math.abs(parseFloat(startWeight) - goalWeight);
+    const currentLoss = Math.abs(parseFloat(startWeight) - currentWeight);
+    const progress = (currentLoss / totalToLose) * 100;
+    
+    return `${Math.min(100, Math.max(0, progress.toFixed(1)))}%`;
+  };
+
+  // Calculate estimated completion date
+  const calculateEstimateCompletion = (currentWeight, goalWeight) => {
+    if (!currentWeight || !goalWeight || isNaN(goalWeight)) return '-';
+    if (sevenDayAvg && !sevenDayAvg.hasData) return 'Need more data';
+    
+    const forecast = calculateForecast();
+    if (!forecast || !forecast.isPossible) return 'Calculating...';
+    
+    return forecast.targetDateFormatted;
+  };
+
+  // Calculate days tracking (from first entry to now)
+  const calculateDaysTracking = () => {
+    if (!entries || entries.length === 0) return '-';
+    
+    // Get earliest date in entries
+    const dates = entries.map(entry => new Date(entry.date));
+    const earliestDate = new Date(Math.min(...dates));
+    
+    // Calculate days between earliest date and today
+    const today = new Date();
+    const diffTime = Math.abs(today - earliestDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays.toString();
+  };
+
   // Use forecast calculation from Stats module
   const calculateForecast = () => {
     if (!formattedEntries.length || !goalWeight) return null;
@@ -789,55 +837,57 @@ export default function WeightTracker() {
                 <span className="text-white">Export</span>
               </button>
             </CardHeader>
-            <CardContent className={`py-6 px-6`}>
-              <div className="overflow-x-auto max-h-[350px]">
+            <CardContent className={`py-6 px-6 overflow-hidden`}>
+              <div style={{ maxHeight: '350px', overflow: 'auto' }} className="scrollbar-hide">
                 {entries.length > 0 ? (
-                  <Table className="w-full">
-                    <TableHeader className={`sticky top-0 ${theme === 'dark' ? 'bg-[#313338]' : 'bg-[#EAE4CA]'} z-10`}>
-                      <TableRow>
-                        <TableHead className="w-[150px]">Date</TableHead>
-                        <TableHead>Day</TableHead>
-                        <TableHead>Weight (kg)</TableHead>
-                        <TableHead>Change</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {formattedEntries.map((entry, index) => {
-                        const prevEntry = formattedEntries[index + 1];
-                        const change = prevEntry ? (entry.weight - prevEntry.weight).toFixed(1) : "--";
-                        const changeColor = change !== "--" ? 
-                          (parseFloat(change) < 0 ? 
-                            theme === 'dark' ? "text-[#57f287]" : "text-[#126134]"
-                            : parseFloat(change) > 0 ? "text-[#ed4245]" : "") 
-                          : "";
-                        
-                        return (
-                          <TableRow key={entry.id || entry.date}>
-                            <TableCell className={`${colors.text}`}>{entry.dateFormatted}</TableCell>
-                            <TableCell className={`${colors.text}`}>{entry.dayFormatted}</TableCell>
-                            <TableCell className={`${colors.text} font-medium`}>{entry.weight}</TableCell>
-                            <TableCell className={`${changeColor} flex items-center`}>
-                              {change !== "--" ? (
-                                <>
-                                  <span>{change > 0 ? "+" + change : change}</span>
-                                  <span className="ml-1">{getTrendIcon(parseFloat(change))}</span>
-                                </>
-                              ) : "--"}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <button 
-                                onClick={() => handleDelete(entry.id)}
-                                className={`${theme === 'dark' ? 'bg-[#ed4245] hover:bg-[#eb2c30]' : 'bg-[#8DA101] hover:bg-[#798901]'} inline-flex h-8 w-8 items-center justify-center rounded-md text-white`}
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                  <div className="relative">
+                    <table className="w-full">
+                      <thead style={{ position: 'sticky', top: 0, zIndex: 10 }} className={`${theme === 'dark' ? 'bg-[#313338]' : 'bg-[#EAE4CA]'}`}>
+                        <tr>
+                          <th className={`text-left py-2 px-4 font-medium ${colors.text} border-b ${theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'}`} style={{ width: '150px' }}>Date</th>
+                          <th className={`text-left py-2 px-4 font-medium ${colors.text} border-b ${theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'}`}>Day</th>
+                          <th className={`text-left py-2 px-4 font-medium ${colors.text} border-b ${theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'}`}>Weight (kg)</th>
+                          <th className={`text-left py-2 px-4 font-medium ${colors.text} border-b ${theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'}`}>Change</th>
+                          <th className={`text-right py-2 px-4 font-medium ${colors.text} border-b ${theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'}`}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {formattedEntries.map((entry, index) => {
+                          const prevEntry = formattedEntries[index + 1];
+                          const change = prevEntry ? (entry.weight - prevEntry.weight).toFixed(1) : "--";
+                          const changeColor = change !== "--" ? 
+                            (parseFloat(change) < 0 ? 
+                              theme === 'dark' ? "text-[#57f287]" : "text-[#126134]"
+                              : parseFloat(change) > 0 ? "text-[#ed4245]" : "") 
+                            : "";
+                          
+                          return (
+                            <tr key={entry.id || entry.date} className={`border-b ${theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'}`}>
+                              <td className={`text-left py-2 px-4 ${colors.text}`}>{entry.dateFormatted}</td>
+                              <td className={`text-left py-2 px-4 ${colors.text}`}>{entry.dayFormatted}</td>
+                              <td className={`text-left py-2 px-4 ${colors.text} font-medium`}>{entry.weight}</td>
+                              <td className={`text-left py-2 px-4 ${changeColor} flex items-center`}>
+                                {change !== "--" ? (
+                                  <>
+                                    <span>{change > 0 ? "+" + change : change}</span>
+                                    <span className="ml-1">{getTrendIcon(parseFloat(change))}</span>
+                                  </>
+                                ) : "--"}
+                              </td>
+                              <td className="text-right py-2 px-4">
+                                <button 
+                                  onClick={() => handleDelete(entry.id)}
+                                  className={`${theme === 'dark' ? 'bg-[#ed4245] hover:bg-[#eb2c30]' : 'bg-[#8DA101] hover:bg-[#798901]'} inline-flex h-8 w-8 items-center justify-center rounded-md text-white`}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : (
                   <div className="text-center py-6 text-[#b5bac1]">
                     <p>No entries yet. Add your first weight using the form.</p>
