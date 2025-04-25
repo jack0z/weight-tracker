@@ -15,12 +15,15 @@ function isIndexedDBSupported() {
  * @returns {string} - A unique share ID
  */
 function generateShareId(username, usePermalink = false) {
+  // Sanitize username to avoid issues with special characters
+  const safeUsername = String(username || 'user').replace(/[^a-zA-Z0-9_-]/g, '');
+  
   if (usePermalink) {
     // Create a consistent ID for permalinks
-    return `${username}_permalink`;
+    return `${safeUsername}_permalink`;
   }
   // Otherwise use timestamp for unique IDs
-  return `${username}_${Date.now().toString(36)}`;
+  return `${safeUsername}_${Date.now().toString(36)}`;
 }
 
 /**

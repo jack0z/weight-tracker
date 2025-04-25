@@ -110,16 +110,30 @@ export default function WeightTracker() {
     }
   };
   
+  // Generate a unique ID for the share link
+  function generateShareId(username, usePermalink = false) {
+    if (usePermalink) {
+      // Create a consistent ID for permalinks - make sure it has a valid format
+      return `${username.replace(/[^a-zA-Z0-9_-]/g, '')}_permalink`;
+    }
+    // Otherwise use timestamp for unique IDs
+    return `${username.replace(/[^a-zA-Z0-9_-]/g, '')}_${Date.now().toString(36)}`;
+  }
+
   // This useEffect should run before any others to check for view mode
   useEffect(() => {
     if (typeof window !== 'undefined') {
       // For Netlify deployments, create demo data first
       if (window.location.hostname.includes('netlify.app')) {
         // Always run createDemoShareData
-        createDemoShareData();
-        
-        // Also create a demo permalink for README link
-        createDemoPermalink();
+        try {
+          createDemoShareData();
+          
+          // Also create a demo permalink for README link
+          createDemoPermalink();
+        } catch (error) {
+          console.error("Error creating demo data:", error);
+        }
       }
       
       // First, check for view mode in URL before doing anything else
@@ -128,9 +142,9 @@ export default function WeightTracker() {
       
       if (viewParam) {
         console.log("View parameter detected:", viewParam);
-        // Immediately set loading state to prevent other initialization
-        setIsLoading(true);
+        // Immediately set view mode to prevent other initializations
         setViewMode(true);
+        setIsLoading(true);
         
         // Check if we're in a static export (Netlify) environment
         const isStaticExport = window.location.hostname.includes('netlify.app');
@@ -141,36 +155,33 @@ export default function WeightTracker() {
           try {
             let viewData = null;
             
-            // Create demo data for this specific view ID
-            if (viewParam === 'luka_m9wkk9vl' || viewParam === 'luka_m9wo6igy') {
-              // Force create the demo data for our permalink
-              viewData = createDemoShareData(true);
-            } else {
-              // Try to get existing data
-              const localData = localStorage.getItem(`shared_${viewParam}`);
-              if (localData) {
-                viewData = JSON.parse(localData);
-              } else {
-                // If specific data is not found, try to create it
-                viewData = createDemoShareData(false);
-              }
+            // Try to get existing data
+            const localData = localStorage.getItem(`shared_${viewParam}`);
+            if (localData) {
+              viewData = JSON.parse(localData);
+              console.log("Found view data in localStorage:", viewParam);
+            } 
+            // If specific data is not found but it's a permalink pattern, create it
+            else if (viewParam.includes('permalink')) {
+              // Create placeholder data for the permalink
+              viewData = createPermalinkData(viewParam.split('_')[0]);
+              console.log("Created placeholder data for permalink:", viewParam);
             }
             
             if (viewData) {
               console.log("Using view data:", viewData);
+              // Set all related states at once to prevent partial renders
               setViewData(viewData);
               
-              // Apply theme from shared data
+              // Apply theme from shared data - safer approach
               if (viewData.theme) {
                 setTheme(viewData.theme);
-                if (viewData.theme === "dark") {
-                  document.documentElement.classList.add("dark");
-                } else {
-                  document.documentElement.classList.remove("dark");
-                }
               }
               
-              setIsLoading(false);
+              // Set loading state after states are updated
+              setTimeout(() => {
+                setIsLoading(false);
+              }, 100);
             } else {
               console.error("No shared data found for:", viewParam);
               setViewModeError("Shared data not found");
@@ -178,7 +189,7 @@ export default function WeightTracker() {
             }
           } catch (error) {
             console.error("Error loading shared data:", error);
-            setViewModeError("Error loading shared data");
+            setViewModeError("Error loading shared data: " + error.message);
             setIsLoading(false);
           }
         } else {
@@ -261,14 +272,11 @@ export default function WeightTracker() {
     }
   }, []);
   
-  // Apply theme to document
+  // Theme effect should be separated for safety
   useEffect(() => {
     if (!isClient) return;
     
-    // Save theme preference
-    localStorage.setItem("theme", theme);
-    
-    // Apply theme to document
+    // Safely apply theme to document
     if (theme === "dark") {
       document.documentElement.classList.add("dark");
     } else {
@@ -693,13 +701,67 @@ export default function WeightTracker() {
   
   // Create demo share data for Netlify deployment
   const createDemoShareData = (forcePermalink = false) => {
-    // For demo view links in Netlify, make sure the data exists
-    if (typeof window !== 'undefined' && window.location.search && !forcePermalink) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const viewParam = urlParams.get('view');
+    try {
+      // For demo view links in Netlify, make sure the data exists
+      if (typeof window !== 'undefined' && window.location.search && !forcePermalink) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const viewParam = urlParams.get('view');
+        
+        if (viewParam) {
+          console.log("Creating demo share data for view parameter:", viewParam);
+          
+          // Handle special permalink format
+          if (viewParam.includes('permalink')) {
+            const username = viewParam.split('_')[0];
+            return createPermalinkData(username);
+          }
+          
+          // Create demo entries - last 30 days with a weight loss trend
+          const demoEntries = [];
+          const today = new Date();
+          
+          for (let i = 0; i < 30; i++) {
+            const entryDate = new Date();
+            entryDate.setDate(today.getDate() - i);
+            
+            // Start at 80kg and go down by 0.1kg each day, with some random variation
+            const baseWeight = 80 - (i * 0.1);
+            const variation = Math.random() * 0.4 - 0.2; // -0.2 to +0.2 variation
+            const weight = (baseWeight + variation).toFixed(1);
+            
+            demoEntries.push({
+              date: entryDate.toISOString().split('T')[0],
+              weight: weight
+            });
+          }
+          
+          // Create share package
+          const demoShareData = {
+            entries: demoEntries,
+            startWeight: "80.0",
+            goalWeight: "75.0",
+            height: "175",
+            theme: "light",
+            sharedBy: "Demo User",
+            sharedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // Expires in 1 year
+          };
+          
+          // Save to localStorage with the actual view parameter ID
+          localStorage.setItem(`shared_${viewParam}`, JSON.stringify(demoShareData));
+          console.log("Demo share data created for:", viewParam);
+          
+          return demoShareData;
+        }
+      }
       
-      if (viewParam) {
-        console.log("Creating demo share data for view parameter:", viewParam);
+      // For general demo data or permalink
+      const permalinkId = 'demo_permalink';
+      const demoShareId = forcePermalink ? permalinkId : 'demo_share';
+      
+      // Check if demo data already exists (or override for permalink)
+      if (forcePermalink || !localStorage.getItem(`shared_${demoShareId}`)) {
+        console.log(forcePermalink ? "Creating permalink demo data" : "Creating general demo share data");
         
         // Create demo entries - last 30 days with a weight loss trend
         const demoEntries = [];
@@ -727,69 +789,41 @@ export default function WeightTracker() {
           goalWeight: "75.0",
           height: "175",
           theme: "light",
-          sharedBy: "Demo User",
+          sharedBy: forcePermalink ? "Demo Permalink" : "Demo User",
           sharedAt: new Date().toISOString(),
           expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // Expires in 1 year
         };
         
-        // Save to localStorage with the actual view parameter ID
-        localStorage.setItem(`shared_${viewParam}`, JSON.stringify(demoShareData));
-        console.log("Demo share data created for:", viewParam);
+        // Save to localStorage
+        localStorage.setItem(`shared_${demoShareId}`, JSON.stringify(demoShareData));
         
+        // Also save as standard permalinks for consistent URLs
+        if (forcePermalink) {
+          localStorage.setItem(`shared_demo_permalink`, JSON.stringify(demoShareData));
+        }
+        
+        console.log(forcePermalink ? "Permalink demo data created" : "General demo share data created");
         return demoShareData;
       }
-    }
-    
-    // For general demo data or permalink
-    const permalinkId = 'demo_permalink';
-    const demoShareId = forcePermalink ? permalinkId : 'demo_share';
-    
-    // Check if demo data already exists (or override for permalink)
-    if (forcePermalink || !localStorage.getItem(`shared_${demoShareId}`)) {
-      console.log(forcePermalink ? "Creating permalink demo data" : "Creating general demo share data");
       
-      // Create demo entries - last 30 days with a weight loss trend
-      const demoEntries = [];
-      const today = new Date();
-      
-      for (let i = 0; i < 30; i++) {
-        const entryDate = new Date();
-        entryDate.setDate(today.getDate() - i);
-        
-        // Start at 80kg and go down by 0.1kg each day, with some random variation
-        const baseWeight = 80 - (i * 0.1);
-        const variation = Math.random() * 0.4 - 0.2; // -0.2 to +0.2 variation
-        const weight = (baseWeight + variation).toFixed(1);
-        
-        demoEntries.push({
-          date: entryDate.toISOString().split('T')[0],
-          weight: weight
-        });
-      }
-      
-      // Create share package
-      const demoShareData = {
-        entries: demoEntries,
+      return null;
+    } catch (error) {
+      console.error("Error in createDemoShareData:", error);
+      // Return a simple placeholder as fallback
+      return {
+        entries: [{
+          date: new Date().toISOString().split('T')[0],
+          weight: "75.0"
+        }],
         startWeight: "80.0",
-        goalWeight: "75.0",
+        goalWeight: "70.0",
         height: "175",
         theme: "light",
-        sharedBy: forcePermalink ? "Demo Permalink" : "Demo User",
+        sharedBy: "Demo Fallback",
         sharedAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // Expires in 1 year
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
       };
-      
-      // Save to localStorage
-      localStorage.setItem(`shared_${demoShareId}`, JSON.stringify(demoShareData));
-      
-      // Also save as standard permalinks for consistent URLs
-      localStorage.setItem(`shared_demo_permalink`, JSON.stringify(demoShareData));
-      
-      console.log(forcePermalink ? "Permalink demo data created" : "General demo share data created");
-      return demoShareData;
     }
-    
-    return null;
   };
 
   // Create a demo permalink that's always available
@@ -838,6 +872,75 @@ export default function WeightTracker() {
     // Save to localStorage with demo_permalink ID
     localStorage.setItem("shared_demo_permalink", JSON.stringify(demoShareData));
     console.log("Demo permalink created successfully");
+  };
+
+  // Create permalink data with user's name
+  const createPermalinkData = (username = "luka") => {
+    try {
+      const permalinkId = `${username}_permalink`;
+      console.log("Creating permalink data for:", permalinkId);
+      
+      // Create sample weight entries - 10 days with a weight loss trend
+      const entries = [];
+      const today = new Date();
+      const startWeight = 80.0;
+      const goalWeight = 75.0;
+      
+      for (let i = 0; i < 10; i++) {
+        const entryDate = new Date();
+        entryDate.setDate(today.getDate() - i);
+        
+        // Calculate a gradual weight loss trend with slight variations
+        const progress = i / 10; // 0 to 1 progress over the 10 days
+        const targetWeight = startWeight - (progress * (startWeight - goalWeight));
+        const variation = Math.random() * 0.4 - 0.2; // -0.2 to +0.2 variation
+        const weight = (targetWeight + variation).toFixed(1);
+        
+        entries.push({
+          date: entryDate.toISOString().split('T')[0],
+          weight: weight
+        });
+      }
+      
+      // Sort entries by date (newest first)
+      entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      // Create a sample user with the permalink data
+      const permalinkData = {
+        entries: entries,
+        startWeight: startWeight.toString(),
+        goalWeight: goalWeight.toString(),
+        height: "175",
+        theme: "light",
+        sharedBy: username || "Anonymous User",
+        sharedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // Expires in 1 year
+        isPermalink: true
+      };
+      
+      // Save to localStorage with the permalink ID
+      localStorage.setItem(`shared_${permalinkId}`, JSON.stringify(permalinkData));
+      console.log("Permalink data created for:", permalinkId);
+      
+      return permalinkData;
+    } catch (error) {
+      console.error("Error in createPermalinkData:", error);
+      // Return a simple fallback permalink
+      return {
+        entries: [{
+          date: new Date().toISOString().split('T')[0],
+          weight: "78.5"
+        }],
+        startWeight: "80.0",
+        goalWeight: "75.0",
+        height: "175",
+        theme: "light",
+        sharedBy: username || "Fallback User",
+        sharedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        isPermalink: true
+      };
+    }
   };
 
   // Main UI return
