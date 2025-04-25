@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { LogIn, Lock, User, Moon, Sun } from "lucide-react";
+import { toast, Toaster } from "sonner";
 import * as Auth from "../auth.js";
 
 export default function Login({ onLogin, theme, toggleTheme }) {
@@ -9,14 +10,76 @@ export default function Login({ onLogin, theme, toggleTheme }) {
   const [password, setPassword] = useState("");
   const [registering, setRegistering] = useState(false);
 
+  // Override the Auth.handleLogin function to use our themed toasts
   const handleSubmit = () => {
-    const result = Auth.handleLogin(username, password, registering);
+    if (!username || !password) {
+      toast.error("Please enter username and password", {
+        style: {
+          background: theme === 'dark' ? "#313338" : "#ffffff",
+          color: theme === 'dark' ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+        }
+      });
+      return;
+    }
     
-    if (result.success) {
+    // Check if user exists
+    const userCredentials = localStorage.getItem(`credentials_${username}`);
+    
+    if (userCredentials) {
+      // User exists, verify password
+      const storedPassword = userCredentials;
+      
+      if (password === storedPassword) {
+        // Successful login
+        localStorage.setItem("current-user", username);
+        
+        toast.success(`Welcome back, ${username}!`, {
+          style: {
+            background: theme === 'dark' ? "#313338" : "#ffffff",
+            color: theme === 'dark' ? "#e3e5e8" : "#374151",
+            border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+          }
+        });
+        
+        // Pass user information back to parent component
+        onLogin({ username });
+      } else {
+        // Wrong password
+        toast.error("Incorrect password", {
+          style: {
+            background: theme === 'dark' ? "#313338" : "#ffffff",
+            color: theme === 'dark' ? "#e3e5e8" : "#374151",
+            border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+          }
+        });
+      }
+    } else if (registering) {
+      // New user registration
+      localStorage.setItem(`credentials_${username}`, password);
+      
+      // Set as logged in
+      localStorage.setItem("current-user", username);
+      
+      toast.success(`Account created! Welcome, ${username}!`, {
+        style: {
+          background: theme === 'dark' ? "#313338" : "#ffffff",
+          color: theme === 'dark' ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+        }
+      });
+      
       // Pass user information back to parent component
-      onLogin(result.user);
-    } else if (result.shouldRegister && !registering) {
-      // Switch to registration mode
+      onLogin({ username });
+    } else {
+      // User doesn't exist
+      toast.error("User not found. Register a new account?", {
+        style: {
+          background: theme === 'dark' ? "#313338" : "#ffffff",
+          color: theme === 'dark' ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+        }
+      });
       setRegistering(true);
     }
   };
@@ -37,6 +100,19 @@ export default function Login({ onLogin, theme, toggleTheme }) {
 
   return (
     <div className={`min-h-screen ${colors.bg} flex items-center justify-center p-4`}>
+      <Toaster 
+        position="top-right" 
+        theme={theme}
+        toastOptions={{
+          style: {
+            background: theme === 'dark' ? "#313338" : "#ffffff",
+            color: theme === 'dark' ? "#e3e5e8" : "#374151",
+            border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.2)"
+          }
+        }}
+      />
+      
       <Card className={`w-full max-w-md ${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
         <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex flex-col items-center`}>
           <div className={`w-16 h-16 rounded-full ${colors.iconBg} flex items-center justify-center mb-2`}>

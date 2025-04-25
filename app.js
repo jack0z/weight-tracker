@@ -179,9 +179,21 @@ export default function WeightTracker() {
       // Show login form
       setShowLoginForm(true);
       
-      toast.success("Logged out successfully");
+      toast.success("Logged out successfully", {
+        style: {
+          background: theme === 'dark' ? "#313338" : "#ffffff",
+          color: theme === 'dark' ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+        }
+      });
     } else {
-      toast.error("Error logging out");
+      toast.error("Error logging out", {
+        style: {
+          background: theme === 'dark' ? "#313338" : "#ffffff",
+          color: theme === 'dark' ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+        }
+      });
     }
   };
 
