@@ -54,7 +54,27 @@ export default function WeightTracker() {
   
   // Toggle theme function
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
+    const newTheme = theme === "dark" ? "light" : "dark";
+    setTheme(newTheme);
+    
+    // Always save theme preference to localStorage
+    localStorage.setItem("theme", newTheme);
+    
+    // If in view mode, update the viewData theme too
+    if (viewMode && viewData) {
+      const updatedViewData = {
+        ...viewData,
+        theme: newTheme
+      };
+      setViewData(updatedViewData);
+      
+      // Directly apply theme to document
+      if (newTheme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    }
   };
   
   // Initialize state from localStorage only after component mounts
@@ -406,6 +426,13 @@ export default function WeightTracker() {
           // Set theme from shared data
           if (result.data.theme) {
             setTheme(result.data.theme);
+            
+            // Directly apply theme to document
+            if (result.data.theme === "dark") {
+              document.documentElement.classList.add("dark");
+            } else {
+              document.documentElement.classList.remove("dark");
+            }
           }
           
           setTimeout(() => {
@@ -430,7 +457,7 @@ export default function WeightTracker() {
         }
       }
     }
-  }, [isClient, theme]);
+  }, [isClient]); // Only run when isClient changes, not on theme changes
 
   // Generate and share a link
   const handleShareLink = () => {

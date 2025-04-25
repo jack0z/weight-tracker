@@ -153,6 +153,16 @@ export default function ViewMode({
     }
   }, [entries, theme]);
 
+  // Add an effect to forcibly apply theme when it changes
+  useEffect(() => {
+    // Apply theme to document directly in the component
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [theme]);
+
   // Get trend icon
   const getTrendIcon = (value) => {
     if (!value || value === 0) return <Minus className={`h-4 w-4 ${colors.textMuted}`} />;
