@@ -46,6 +46,9 @@ export default function WeightTracker() {
   // Theme state
   const [theme, setTheme] = useState("light");
   
+  // Chart zoom state
+  const [chartZoom, setChartZoom] = useState({ enabled: false, timeframe: 'all' });
+  
   // Share functionality state
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareLink, setShareLink] = useState("");
@@ -432,10 +435,34 @@ export default function WeightTracker() {
     return Stats.calculateBMI(weightKg, heightCm);
   };
 
-  // Use BMI category function from Stats module
-  const getBMICategory = (bmi) => {
-    return Stats.getBMICategory(bmi, theme);
+  // Add BMI color function
+  const getBmiColor = (bmi) => {
+    if (!bmi) return '';
+    if (bmi < 18.5) return 'text-blue-500';
+    if (bmi < 25) return 'text-green-500';
+    if (bmi < 30) return 'text-yellow-500';
+    return 'text-red-500';
   };
+
+  // Add simple BMI category function
+  const getBmiCategory = (bmi) => {
+    if (!bmi) return 'No data';
+    if (bmi < 18.5) return 'Underweight';
+    if (bmi < 25) return 'Normal weight';
+    if (bmi < 30) return 'Overweight';
+    return 'Obese';
+  };
+
+  // Calculate latest BMI if entries and height exist
+  const latestBmi = entries.length > 0 && height ? 
+    parseFloat(Stats.calculateBMI(entries[0].weight, height)) : null;
+
+  // Calculate overall change and first entry data
+  const firstEntry = entries.length > 0 ? 
+    [...entries].sort((a, b) => new Date(a.date) - new Date(b.date))[0] : null;
+  
+  const overallChange = entries.length > 1 && firstEntry ? 
+    parseFloat(entries[0].weight) - parseFloat(firstEntry.weight) : undefined;
 
   // Calculate progress as percentage towards goal weight
   const calculateProgress = (currentWeight, goalWeight) => {
@@ -998,13 +1025,13 @@ export default function WeightTracker() {
       
       <div className="max-w-6xl mx-auto">
         {/* Header with user info and controls */}
-        <div className={`flex justify-between items-center mb-4 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
-          <div className="flex items-center gap-1">
-            <h2 className={`text-xl sm:text-2xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+        <div className={`flex flex-col sm:flex-row justify-between items-center mb-6 gap-3 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+          <div className="flex items-center gap-1 w-full sm:w-auto justify-center sm:justify-start">
+            <h2 className={`text-lg sm:text-xl md:text-2xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
               Weight Tracker
             </h2>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 w-full sm:w-auto justify-center sm:justify-end">
             <span className="text-sm mr-2">{currentUser}</span>
             {/* Add Share Button with Dropdown */}
             <div className="relative">
@@ -1058,12 +1085,11 @@ export default function WeightTracker() {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Settings Card - Top Left */}
-          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
-            <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-              <CardTitle className={`${colors.text} text-lg`}>Settings</CardTitle>
-            </CardHeader>
+        {/* Main content area with cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {/* Settings Card */}
+          <div className={`p-4 rounded-lg ${theme === 'dark' ? colors.cardBg : 'bg-white shadow-md'}`}>
+            <h3 className={`text-base sm:text-lg font-medium mb-3 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Settings</h3>
             <CardContent className={`py-6 px-6`}>
               <div className="space-y-6">
                 <div>
@@ -1128,28 +1154,54 @@ export default function WeightTracker() {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </div>
 
-          {/* Chart Card - Top Right */}
-          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
-            <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-              <CardTitle className={`${colors.text} text-lg`}>Weight Chart</CardTitle>
-            </CardHeader>
-            <CardContent className={`py-6 px-6`}>
-              <div className="h-[300px]">
+          {/* Data Display Area - Main Chart */}
+          <div className="grid grid-cols-1 gap-4 mb-6">
+            {/* Weight Graph Card */}
+            <div className={`p-3 sm:p-4 rounded-lg ${theme === 'dark' ? colors.cardBg : 'bg-white shadow-md'}`}>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3">
+                <h3 className={`text-base sm:text-lg font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+                  Weight Progress
+                </h3>
+                <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
+                  <div className="flex items-center">
+                    <label className={`text-xs mr-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>Zoom:</label>
+                    <select
+                      value={chartZoom.timeframe}
+                      onChange={(e) => setChartZoom({...chartZoom, enabled: true, timeframe: e.target.value})}
+                      className={`text-xs py-1 px-2 rounded ${theme === 'dark' ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-800 border-gray-300'} border`}
+                    >
+                      <option value="all">All time</option>
+                      <option value="1m">1 month</option>
+                      <option value="3m">3 months</option>
+                      <option value="6m">6 months</option>
+                      <option value="1y">1 year</option>
+                    </select>
+                  </div>
+                  <button
+                    onClick={() => setChartZoom({...chartZoom, enabled: false, timeframe: 'all'})}
+                    className={`text-xs py-1 px-2 rounded ${chartZoom.enabled ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'bg-gray-400 text-gray-200 cursor-not-allowed'} disabled:opacity-50`}
+                    disabled={!chartZoom.enabled}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+              <div className="h-[300px] sm:h-[350px]">
                 {entries.length > 0 ? (
                   typeof window !== 'undefined' ? 
                     <Chart 
                       options={chartConfig.options} 
                       series={chartConfig.series} 
                       type="area" 
-                      height={300}
+                      height="100%"
                     />
                   : <div>Loading chart...</div>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-[#b5bac1]">
                     <p className="mb-2">No data available yet.</p>
-                    <button 
+                    <button
                       onClick={() => {
                         const input = document.querySelector('input[type="number"]');
                         if (input) input.focus();
@@ -1161,14 +1213,158 @@ export default function WeightTracker() {
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Add New Entry Card - Bottom Left */}
-          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
-            <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-              <CardTitle className={`${colors.text} text-lg`}>Add New Entry</CardTitle>
-            </CardHeader>
+          {/* Additional Data Visualization */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {/* BMI Card */}
+            <div className={`p-3 sm:p-4 rounded-lg ${theme === 'dark' ? colors.cardBg : 'bg-white shadow-md'}`}>
+              <h3 className={`text-base sm:text-lg font-medium mb-3 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+                BMI Tracker
+              </h3>
+              <div className="h-[250px] sm:h-[300px]">
+                {entries.length > 0 && height ? (
+                  <div className="h-full flex flex-col">
+                    <div className="text-center pb-4">
+                      <div className={`text-xl font-bold ${getBmiColor(latestBmi)}`}>
+                        {latestBmi ? latestBmi.toFixed(1) : 'N/A'}
+                      </div>
+                      <div className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                        {getBmiCategory(latestBmi)}
+                      </div>
+                    </div>
+                    <div className="flex-grow relative">
+                      {/* BMI Scale Visualization */}
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="h-8 w-full bg-gradient-to-r from-blue-500 via-green-500 via-yellow-500 to-red-500 rounded-md"></div>
+                        <div 
+                          className="absolute h-10 w-3 bg-white border-2 border-gray-800 rounded-full transform -translate-x-1/2"
+                          style={{ 
+                            left: `${Math.min(Math.max((latestBmi - 15) / 25 * 100, 0), 100)}%` 
+                          }}
+                        ></div>
+                      </div>
+                      
+                      {/* BMI Categories */}
+                      <div className="absolute bottom-0 w-full grid grid-cols-4 text-xs pt-12">
+                        <div className="text-blue-500 text-center">Underweight<br/>&lt;18.5</div>
+                        <div className="text-green-500 text-center">Normal<br/>18.5-24.9</div>
+                        <div className="text-yellow-500 text-center">Overweight<br/>25-29.9</div>
+                        <div className="text-red-500 text-center">Obese<br/>&gt;30</div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-[#b5bac1]">
+                    <p className="mb-2">
+                      {height ? "Add weight to see BMI" : "Set your height in settings"}
+                    </p>
+                    <button
+                      onClick={() => {
+                        if (!height) {
+                          // Focus height input in settings
+                          const heightInput = document.querySelector('input[name="height"]');
+                          if (heightInput) heightInput.focus();
+                        } else {
+                          // Focus weight input
+                          const weightInput = document.querySelector('input[type="number"]');
+                          if (weightInput) weightInput.focus();
+                        }
+                      }} 
+                      className={`${colors.buttonBgPrimary} px-4 py-2 rounded-md border border-[#4752c4]`}
+                    >
+                      {height ? "Add Weight" : "Set Height"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Trends Card */}
+            <div className={`p-3 sm:p-4 rounded-lg ${theme === 'dark' ? colors.cardBg : 'bg-white shadow-md'}`}>
+              <h3 className={`text-base sm:text-lg font-medium mb-3 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+                Weight Trends
+              </h3>
+              <div className="h-[250px] sm:h-[300px]">
+                {entries.length > 1 ? (
+                  <div className="h-full flex flex-col space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                        <div className="text-xs text-gray-500 mb-1">7-day Change</div>
+                        <div className={`text-lg font-semibold ${sevenDayAvg.change > 0 ? 'text-red-500' : sevenDayAvg.change < 0 ? 'text-green-500' : 'text-gray-500'}`}>
+                          {sevenDayAvg.hasData ? (
+                            sevenDayAvg.change > 0 ? 
+                              `+${sevenDayAvg.change?.toFixed(1) || '0.0'} kg` : 
+                              `${sevenDayAvg.change?.toFixed(1) || '0.0'} kg`
+                          ) : 'N/A'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {sevenDayAvg.hasData ? 
+                            `${(sevenDayAvg.changePerWeek)?.toFixed(1) || '0.0'} kg/week` : 
+                            'Need more data'}
+                        </div>
+                      </div>
+                      
+                      <div className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                        <div className="text-xs text-gray-500 mb-1">30-day Change</div>
+                        <div className={`text-lg font-semibold ${thirtyDayAvg.change > 0 ? 'text-red-500' : thirtyDayAvg.change < 0 ? 'text-green-500' : 'text-gray-500'}`}>
+                          {thirtyDayAvg.hasData ? (
+                            thirtyDayAvg.change > 0 ? 
+                              `+${thirtyDayAvg.change?.toFixed(1) || '0.0'} kg` : 
+                              `${thirtyDayAvg.change?.toFixed(1) || '0.0'} kg`
+                          ) : 'N/A'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {thirtyDayAvg.hasData ? 
+                            `${(thirtyDayAvg.changePerWeek)?.toFixed(1) || '0.0'} kg/week` : 
+                            'Need more data'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className={`p-3 rounded-lg ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                      <div className="text-xs text-gray-500 mb-1">Overall Trend</div>
+                      <div className="flex items-center gap-2">
+                        <div className={`text-lg font-semibold ${overallChange > 0 ? 'text-red-500' : overallChange < 0 ? 'text-green-500' : 'text-gray-500'}`}>
+                          {overallChange !== undefined ? (
+                            overallChange > 0 ? 
+                              `+${overallChange.toFixed(1)} kg` : 
+                              `${overallChange.toFixed(1)} kg`
+                          ) : 'N/A'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {firstEntry && firstEntry.date ? 
+                            `since ${new Date(firstEntry.date).toLocaleDateString()}` : 
+                            ''}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-[#b5bac1]">
+                    <p className="mb-2">Need at least 2 entries to see trends</p>
+                    <button
+                      onClick={() => {
+                        const input = document.querySelector('input[type="number"]');
+                        if (input) input.focus();
+                      }} 
+                      className={`${colors.buttonBgPrimary} px-4 py-2 rounded-md border border-[#4752c4]`}
+                    >
+                      Add More Entries
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Weight Input and Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {/* Weight Input Card */}
+          <div className={`p-4 rounded-lg ${theme === 'dark' ? colors.cardBg : 'bg-white shadow-md'}`}>
+            <h3 className={`text-base sm:text-lg font-medium mb-3 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Add Entry</h3>
             <CardContent className={`py-6 px-6`}>
               <div className="space-y-6">
                 <div>
@@ -1224,29 +1420,12 @@ export default function WeightTracker() {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </div>
 
-          {/* Weight History Card - Bottom Right */}
-          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
-            <CardHeader className={`border-b ${colors.border} relative flex flex-row items-center justify-center pb-3 pt-4`}>
-              <div className="flex items-center">
-                <CardTitle className={`${colors.text} text-lg`}>Weight History</CardTitle>
-                <div className="text-sm ${theme === 'dark' ? 'text-[#57f287]' : 'text-[#126134]'} ml-2">({entries.length} entries)</div>
-              </div>
-              <button
-                onClick={exportToCsv}
-                disabled={entries.length === 0}
-                className={`${colors.buttonBgPrimary} px-3 py-1 text-xs rounded-md flex items-center absolute right-4
-                  ${entries.length > 0 
-                    ? 'bg-[#404249] hover:bg-[#4752c4] text-white cursor-pointer' 
-                    : 'bg-[#36373d] text-[#72767d] cursor-not-allowed'}`}
-                title="Export to CSV"
-              >
-                <Download size={14} className="mr-1 text-white" />
-                <span className="text-white">Export</span>
-              </button>
-            </CardHeader>
-            <CardContent className={`py-6 px-6 overflow-hidden`}>
+          {/* Weight History Card */}
+          <div className={`p-4 rounded-lg ${theme === 'dark' ? colors.cardBg : 'bg-white shadow-md'}`}>
+            <h3 className={`text-base sm:text-lg font-medium mb-3 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Weight History</h3>
+            <CardContent className={`py-6 px-6`}>
               <div style={{ maxHeight: '350px', overflow: 'auto' }} className="scrollbar-hide">
                 {entries.length > 0 ? (
                   <div className="relative">
@@ -1304,77 +1483,75 @@ export default function WeightTracker() {
                 )}
               </div>
             </CardContent>
-          </Card>
-          
-          {/* Summary Card - Spans full width on larger screens */}
-          {entries.length > 0 && (
-            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden`}>
-              <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-                <CardTitle className={`${colors.text} text-lg`}>Summary</CardTitle>
-              </CardHeader>
-              <CardContent className={`py-6 px-6`}>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className={`${colors.blockBg} p-4 rounded-md`}>
-                    <div className="text-sm text-[#b5bac1] mb-1">Current</div>
-                    <div className={`text-xl font-bold ${colors.text}`}>{entries[0].weight} kg</div>
-                  </div>
-                  
-                  {goalWeight && (
-                    <div className={`${colors.blockBg} p-4 rounded-md`}>
-                      <div className="text-sm text-[#b5bac1] mb-1">Goal</div>
-                      <div className={`text-xl font-bold ${colors.text}`}>{goalWeight} kg</div>
-                    </div>
-                  )}
-                  
-                  {startWeight && entries.length > 0 && (
-                    <div className={`${colors.blockBg} p-4 rounded-md`}>
-                      <div className="text-sm text-[#b5bac1] mb-1">Total Change</div>
-                      <div className="flex items-center">
-                        <span className={`text-xl font-bold ${colors.text} mr-1`}>
-                          {(entries[0].weight - startWeight).toFixed(1)} kg
-                        </span>
-                        {getTrendIcon(entries[0].weight - startWeight)}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {entries.length > 1 && (
-                    <div className={`${colors.blockBg} p-4 rounded-md`}>
-                      <div className="text-sm text-[#b5bac1] mb-1">Last Change</div>
-                      <div className="flex items-center">
-                        <span className={`text-xl font-bold ${colors.text} mr-1`}>
-                          {(entries[0].weight - entries[1].weight).toFixed(1)} kg
-                        </span>
-                        {getTrendIcon(entries[0].weight - entries[1].weight)}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* BMI Card */}
-                  {height && entries.length > 0 && (
-                    <div className={`${colors.blockBg} p-4 rounded-md`}>
-                      <div className="text-sm text-[#b5bac1] mb-1">BMI</div>
-                      <div className={`text-xl font-bold ${colors.text}`}>{calculateBMI(entries[0].weight, height)}</div>
-                      <div className={`text-sm ${getBMICategory(calculateBMI(entries[0].weight, height)).color} mt-1`}>{getBMICategory(calculateBMI(entries[0].weight, height)).category}</div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Forecast Card */}
-          {entries.length > 0 && goalWeight && sevenDayAvg.hasData && (
-            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2`}>
-              <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-                <CardTitle className={`${colors.text} text-lg`}>Forecast</CardTitle>
-              </CardHeader>
-              <CardContent className={`py-6 px-6`}>
-                {/* Forecast content */}
-              </CardContent>
-            </Card>
-          )}
+          </div>
         </div>
+        
+        {/* Summary Card */}
+        {entries.length > 0 && (
+          <div className={`p-4 rounded-lg ${theme === 'dark' ? colors.cardBg : 'bg-white shadow-md'}`}>
+            <h3 className={`text-base sm:text-lg font-medium mb-3 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Summary</h3>
+            <CardContent className={`py-6 px-6`}>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className={`${colors.blockBg} p-4 rounded-md`}>
+                  <div className="text-sm text-[#b5bac1] mb-1">Current</div>
+                  <div className={`text-xl font-bold ${colors.text}`}>{entries[0].weight} kg</div>
+                </div>
+                
+                {goalWeight && (
+                  <div className={`${colors.blockBg} p-4 rounded-md`}>
+                    <div className="text-sm text-[#b5bac1] mb-1">Goal</div>
+                    <div className={`text-xl font-bold ${colors.text}`}>{goalWeight} kg</div>
+                  </div>
+                )}
+                
+                {startWeight && entries.length > 0 && (
+                  <div className={`${colors.blockBg} p-4 rounded-md`}>
+                    <div className="text-sm text-[#b5bac1] mb-1">Total Change</div>
+                    <div className="flex items-center">
+                      <span className={`text-xl font-bold ${colors.text} mr-1`}>
+                        {(entries[0].weight - startWeight).toFixed(1)} kg
+                      </span>
+                      {getTrendIcon(entries[0].weight - startWeight)}
+                    </div>
+                  </div>
+                )}
+                
+                {entries.length > 1 && (
+                  <div className={`${colors.blockBg} p-4 rounded-md`}>
+                    <div className="text-sm text-[#b5bac1] mb-1">Last Change</div>
+                    <div className="flex items-center">
+                      <span className={`text-xl font-bold ${colors.text} mr-1`}>
+                        {(entries[0].weight - entries[1].weight).toFixed(1)} kg
+                      </span>
+                      {getTrendIcon(entries[0].weight - entries[1].weight)}
+                    </div>
+                  </div>
+                )}
+
+                {/* BMI Card */}
+                {height && entries.length > 0 && (
+                  <div className={`${colors.blockBg} p-4 rounded-md`}>
+                    <div className="text-sm text-[#b5bac1] mb-1">BMI</div>
+                    <div className={`text-xl font-bold ${colors.text}`}>{calculateBMI(entries[0].weight, height)}</div>
+                    <div className={`text-sm ${getBmiColor(calculateBMI(entries[0].weight, height))} mt-1`}>
+                      {getBmiCategory(calculateBMI(entries[0].weight, height))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </div>
+        )}
+        
+        {/* Forecast Card */}
+        {entries.length > 0 && goalWeight && sevenDayAvg.hasData && (
+          <div className={`p-4 rounded-lg ${theme === 'dark' ? colors.cardBg : 'bg-white shadow-md'}`}>
+            <h3 className={`text-base sm:text-lg font-medium mb-3 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Forecast</h3>
+            <CardContent className={`py-6 px-6`}>
+              {/* Forecast content */}
+            </CardContent>
+          </div>
+        )}
       </div>
     </div>
   );
