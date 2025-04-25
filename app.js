@@ -921,12 +921,15 @@ export default function WeightTracker() {
       // Sort entries by date (newest first)
       entries.sort((a, b) => new Date(b.date) - new Date(a.date));
       
+      // Log the created entries for debugging
+      console.log("Created permalink entries:", JSON.stringify(entries.slice(0, 2)));
+
       // Create a sample user with the permalink data
       const permalinkData = {
         entries: entries,
         startWeight: startWeight.toString(),
         goalWeight: goalWeight.toString(),
-        height: "175",
+        height: "175", // Ensure height is a string for consistent handling
         theme: "light",
         sharedBy: username || "Anonymous User",
         sharedAt: new Date().toISOString(),
@@ -937,6 +940,15 @@ export default function WeightTracker() {
       // Save to localStorage with the permalink ID
       localStorage.setItem(`shared_${permalinkId}`, JSON.stringify(permalinkData));
       console.log("Permalink data created for:", permalinkId);
+      
+      // Validate the data we're returning
+      try {
+        // Test BMI calculation as a sanity check
+        const testBmi = Stats.calculateBMI(entries[0].weight, permalinkData.height);
+        console.log("BMI calculation test:", testBmi);
+      } catch (e) {
+        console.error("BMI calculation error:", e);
+      }
       
       return permalinkData;
     } catch (error) {
@@ -950,7 +962,7 @@ export default function WeightTracker() {
         }],
         startWeight: "80.0",
         goalWeight: "75.0",
-        height: "175",
+        height: "175", // Ensure height is a string
         theme: "light",
         sharedBy: username || "Fallback User",
         sharedAt: new Date().toISOString(),

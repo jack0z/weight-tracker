@@ -395,12 +395,28 @@ export default function ViewMode({
             
             {isClient && chartData && isChartReady ? (
               <div className="-mx-3 sm:-mx-2 md:-mx-1">
-                <Chart
-                  options={chartData.options}
-                  series={chartData.series}
-                  type="area"
-                  height={350}
-                />
+                {(() => {
+                  try {
+                    return (
+                      <Chart
+                        options={chartData.options}
+                        series={chartData.series}
+                        type="area"
+                        height={350}
+                      />
+                    );
+                  } catch (error) {
+                    console.error("Error rendering chart:", error);
+                    return (
+                      <div className="flex flex-col justify-center items-center h-[350px]">
+                        <AlertTriangle className="h-8 w-8 text-warning mb-2" />
+                        <p className={`text-sm ${colors.textMuted} text-center`}>
+                          Error rendering chart. Please try refreshing the page.
+                        </p>
+                      </div>
+                    );
+                  }
+                })()}
               </div>
             ) : (
               <div className="flex justify-center items-center h-[350px]">
@@ -491,10 +507,10 @@ export default function ViewMode({
               {formattedEntries.length > 0 && height ? (
                 <>
                   <p className={`text-2xl font-bold ${colors.text}`}>
-                    {Stats.calculateBMI(formattedEntries[0].weight, height).toFixed(1)}
+                    {Stats.calculateBMI(formattedEntries[0].weight, height)}
                   </p>
-                  <p className={`text-xs ${colors.textMuted}`}>
-                    {Stats.getBMICategory(Stats.calculateBMI(formattedEntries[0].weight, height))}
+                  <p className={`text-xs ${Stats.getBMICategory(Stats.calculateBMI(formattedEntries[0].weight, height), theme).color}`}>
+                    {Stats.getBMICategory(Stats.calculateBMI(formattedEntries[0].weight, height), theme).category}
                   </p>
                 </>
               ) : (

@@ -87,46 +87,94 @@ function calculateAverage(formattedEntries, days) {
 
 /**
  * Calculate BMI from weight and height
- * @param {number} weightKg - Weight in kilograms
- * @param {number} heightCm - Height in centimeters
+ * @param {number|string} weightKg - Weight in kilograms
+ * @param {number|string} heightCm - Height in centimeters
  * @returns {string|null} - BMI value as string with 1 decimal place, or null if inputs are invalid
  */
 function calculateBMI(weightKg, heightCm) {
-  if (!weightKg || !heightCm) return null;
-  
-  const heightM = heightCm / 100;
-  const bmi = weightKg / (heightM * heightM);
-  return bmi.toFixed(1);
+  try {
+    // Handle invalid inputs
+    if (!weightKg || !heightCm) return null;
+    
+    // Convert string inputs to numbers
+    const weight = parseFloat(weightKg);
+    const height = parseFloat(heightCm);
+    
+    // Validate converted numbers
+    if (isNaN(weight) || isNaN(height) || height <= 0 || weight <= 0) {
+      console.warn("Invalid inputs for BMI calculation:", { weightKg, heightCm });
+      return null;
+    }
+    
+    const heightM = height / 100;
+    const bmi = weight / (heightM * heightM);
+    
+    // Ensure BMI is a reasonable value
+    if (isNaN(bmi) || !isFinite(bmi) || bmi <= 0 || bmi > 100) {
+      console.warn("Unreasonable BMI calculated:", bmi, { weight, height });
+      return null;
+    }
+    
+    return bmi.toFixed(1);
+  } catch (error) {
+    console.error("Error calculating BMI:", error, { weightKg, heightCm });
+    return null;
+  }
 }
 
 /**
  * Get BMI category and associated color
- * @param {number} bmi - BMI value
+ * @param {number|string|null} bmi - BMI value
  * @param {string} theme - Current theme ('dark' or 'light')
  * @returns {Object} - Category and color information
  */
 function getBMICategory(bmi, theme = 'dark') {
-  if (!bmi) return { category: "", color: "" };
-  
-  if (bmi < 18.5) return { 
-    category: "Underweight", 
-    color: theme === 'dark' ? "text-[#fee75c]" : "text-[#DFA000]" 
-  };
-  
-  if (bmi < 25) return { 
-    category: "Healthy", 
-    color: theme === 'dark' ? "text-[#57f287]" : "text-[#126134]" 
-  };
-  
-  if (bmi < 30) return { 
-    category: "Overweight", 
-    color: theme === 'dark' ? "text-[#fee75c]" : "text-[#F85552]" 
-  };
-  
-  return { 
-    category: "Obese", 
-    color: theme === 'dark' ? "text-[#ed4245]" : "text-[#F85552]" 
-  };
+  try {
+    // Handle null or undefined values
+    if (bmi === null || bmi === undefined) {
+      return { 
+        category: "Unknown", 
+        color: theme === 'dark' ? "text-[#b5bac1]" : "text-[#829181]" 
+      };
+    }
+    
+    // Convert string to number if needed
+    const bmiValue = typeof bmi === 'string' ? parseFloat(bmi) : bmi;
+    
+    // Check if conversion resulted in a valid number
+    if (isNaN(bmiValue)) {
+      return { 
+        category: "Unknown", 
+        color: theme === 'dark' ? "text-[#b5bac1]" : "text-[#829181]" 
+      };
+    }
+    
+    if (bmiValue < 18.5) return { 
+      category: "Underweight", 
+      color: theme === 'dark' ? "text-[#fee75c]" : "text-[#DFA000]" 
+    };
+    
+    if (bmiValue < 25) return { 
+      category: "Healthy", 
+      color: theme === 'dark' ? "text-[#57f287]" : "text-[#126134]" 
+    };
+    
+    if (bmiValue < 30) return { 
+      category: "Overweight", 
+      color: theme === 'dark' ? "text-[#fee75c]" : "text-[#F85552]" 
+    };
+    
+    return { 
+      category: "Obese", 
+      color: theme === 'dark' ? "text-[#ed4245]" : "text-[#F85552]" 
+    };
+  } catch (error) {
+    console.error("Error determining BMI category:", error, { bmi });
+    return { 
+      category: "Error", 
+      color: theme === 'dark' ? "text-[#b5bac1]" : "text-[#829181]" 
+    };
+  }
 }
 
 /**
