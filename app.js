@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Input } from "./components/ui/input";
 import { Button } from "./components/ui/button";
 import { format as dateFormat, parseISO, subDays, addDays } from "date-fns";
-import { Trash2, Save, TrendingDown, TrendingUp, Minus, Download, Calendar, ArrowRight, LogOut, Sun, Moon } from "lucide-react";
+import { Trash2, Save, TrendingDown, TrendingUp, Minus, Download, Calendar, ArrowRight, LogOut, Sun, Moon, Share2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import dynamic from "next/dynamic";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./components/ui/table";
@@ -17,9 +17,12 @@ import * as ChartUtils from './chart.js';
 import * as Export from './export.js';
 import * as UI from './ui.js';
 import * as Auth from './auth.js';
+import * as Share from './share.js';
 
-// Import Login component
+// Import components
 import Login from './components/Login.jsx';
+import ShareModal from './components/ShareModal.jsx';
+import ViewMode from './components/ViewMode.jsx';
 
 // Dynamically import ApexCharts with no SSR to avoid hydration issues
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -42,6 +45,12 @@ export default function WeightTracker() {
   
   // Theme state
   const [theme, setTheme] = useState("light");
+  
+  // Share functionality state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareLink, setShareLink] = useState("");
+  const [viewMode, setViewMode] = useState(false);
+  const [viewData, setViewData] = useState(null);
   
   // Toggle theme function
   const toggleTheme = () => {
@@ -351,10 +360,12 @@ export default function WeightTracker() {
 
   // Use Stats module functions for weight ranges and distribution
   const getWeightRanges = () => {
+    if (!entries || entries.length < 5) return [];
     return Stats.getWeightRanges(entries);
   };
   
   const getWeightDistribution = () => {
+    if (!entries || entries.length < 5) return [];
     return Stats.getWeightDistribution(entries);
   };
 
@@ -375,9 +386,114 @@ export default function WeightTracker() {
     };
   }
 
+  // Add this new useEffect to check for view mode in URL
+  useEffect(() => {
+    if (isClient && typeof window !== 'undefined') {
+      // Check for view mode in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      
+      if (viewParam) {
+        console.log("View mode detected:", viewParam);
+        
+        // Load shared data
+        const result = Share.loadSharedView(viewParam);
+        
+        if (result.success) {
+          setViewMode(true);
+          setViewData(result.data);
+          
+          // Set theme from shared data
+          if (result.data.theme) {
+            setTheme(result.data.theme);
+          }
+          
+          setTimeout(() => {
+            toast.success("Viewing shared weight data", {
+              style: {
+                background: theme === 'dark' ? "#313338" : "#ffffff",
+                color: theme === 'dark' ? "#e3e5e8" : "#374151",
+                border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+              }
+            });
+          }, 500);
+        } else {
+          setTimeout(() => {
+            toast.error(result.message, {
+              style: {
+                background: theme === 'dark' ? "#313338" : "#ffffff",
+                color: theme === 'dark' ? "#e3e5e8" : "#374151",
+                border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+              }
+            });
+          }, 500);
+        }
+      }
+    }
+  }, [isClient, theme]);
+
+  // Generate and share a link
+  const handleShareLink = () => {
+    if (!isLoggedIn) {
+      toast.error("You must be logged in to share your tracker", {
+        style: {
+          background: theme === 'dark' ? "#313338" : "#ffffff",
+          color: theme === 'dark' ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+        }
+      });
+      return;
+    }
+    
+    const result = Share.generateShareLink(
+      currentUser,
+      entries,
+      startWeight,
+      goalWeight,
+      height,
+      theme
+    );
+    
+    if (result.success) {
+      setShareLink(result.shareLink);
+      setShowShareModal(true);
+    } else {
+      toast.error(result.message, {
+        style: {
+          background: theme === 'dark' ? "#313338" : "#ffffff",
+          color: theme === 'dark' ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+        }
+      });
+    }
+  };
+  
+  // Exit view mode
+  const handleExitViewMode = () => {
+    // Instead of just updating state, fully reload the page
+    // This ensures a clean state with no lingering permissions
+    window.location.href = window.location.origin;
+  };
+
   // Show login screen if not logged in
   if (showLoginForm) {
     return <Login onLogin={handleUserLogin} theme={theme} toggleTheme={toggleTheme} />;
+  }
+
+  // If in view mode, render the ViewMode component
+  if (viewMode && viewData) {
+    return (
+      <ViewMode 
+        entries={viewData.entries}
+        startWeight={viewData.startWeight}
+        goalWeight={viewData.goalWeight}
+        height={viewData.height}
+        theme={theme}
+        sharedBy={viewData.sharedBy}
+        onThemeToggle={toggleTheme}
+        onExit={handleExitViewMode}
+      />
+    );
   }
 
   // Color scheme based on theme
@@ -411,6 +527,14 @@ export default function WeightTracker() {
         }}
       />
       
+      {/* Share Modal */}
+      <ShareModal 
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        shareLink={shareLink}
+        theme={theme}
+      />
+      
       <div className="max-w-6xl mx-auto">
         {/* Header with user info and controls */}
         <div className={`flex justify-between items-center mb-4 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
@@ -421,6 +545,14 @@ export default function WeightTracker() {
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-sm mr-2">{currentUser}</span>
+            {/* Add Share Button */}
+            <button
+              onClick={handleShareLink}
+              className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
+              title="Share your progress"
+            >
+              <Share2 size={16} className="text-white" />
+            </button>
             <button
               onClick={toggleTheme}
               className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
