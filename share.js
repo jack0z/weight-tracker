@@ -11,10 +11,11 @@ function isIndexedDBSupported() {
 /**
  * Generate a unique ID for the share link
  * @param {string} username - The username of the current user
+ * @param {boolean} usePermalink - Whether to generate a permalink
  * @returns {string} - A unique share ID
  */
-function generateShareId(username) {
-  return `${username}_${Date.now().toString(36)}`;
+function generateShareId(username, usePermalink = false) {
+  return `${username}_${Date.now().toString(36)}_${usePermalink ? 'permalink' : ''}`;
 }
 
 /**
@@ -36,7 +37,8 @@ function createSharePackage(entries, startWeight, goalWeight, height, theme, use
     theme,
     sharedBy: username,
     sharedAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // Expires in 30 days
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Expires in 30 days
+    isPermalink: false
   };
 }
 
@@ -48,9 +50,10 @@ function createSharePackage(entries, startWeight, goalWeight, height, theme, use
  * @param {string|number} goalWeight - Goal weight
  * @param {string|number} height - User height
  * @param {string} theme - Current theme
+ * @param {boolean} usePermalink - Whether to generate a permalink
  * @returns {Object} - Result object with success status, message, and shareLink if successful
  */
-function generateShareLink(username, entries, startWeight, goalWeight, height, theme) {
+async function generateShareLink(username, entries, startWeight, goalWeight, height, theme, usePermalink = false) {
   if (!username) {
     return { success: false, message: "You must be logged in to share your tracker" };
   }
@@ -60,31 +63,42 @@ function generateShareLink(username, entries, startWeight, goalWeight, height, t
   }
   
   try {
-    // Generate a unique ID for sharing
-    const shareId = generateShareId(username);
+    const shareId = generateShareId(username, usePermalink);
     
-    // Create the data package to share
-    const dataToShare = createSharePackage(entries, startWeight, goalWeight, height, theme, username);
+    // Create the share data package
+    const shareData = {
+      entries: entries,
+      startWeight: startWeight,
+      goalWeight: goalWeight,
+      height: height,
+      theme: theme || 'light',
+      sharedBy: username,
+      sharedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Expires in 30 days
+      isPermalink: usePermalink
+    };
     
-    // Save to both localStorage (for backward compatibility) and IndexedDB (for cross-device support)
-    localStorage.setItem(`shared_${shareId}`, JSON.stringify(dataToShare));
+    // Save the data to localStorage (in a real app this would be stored in a database)
+    localStorage.setItem(`shared_${shareId}`, JSON.stringify(shareData));
     
-    // Also save to shared DB collection
-    saveToSharedCollection(shareId, dataToShare);
+    // Generate a share link using the share ID
+    // In a production environment, this would generate a static HTML file
+    const shareLink = `${window.location.origin}/share/${shareId}`;
     
-    // Generate the full URL
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin + window.location.pathname : '';
-    const shareLink = `${baseUrl}?view=${shareId}`;
-    
-    return { 
-      success: true, 
-      message: "Share link generated successfully", 
-      shareLink,
-      shareId 
+    return {
+      success: true,
+      shareLink: shareLink,
+      isPermalink: usePermalink,
+      message: usePermalink ? 
+        "Permalink created! This link will always show your latest data." : 
+        "Share link created! This link will expire in 30 days."
     };
   } catch (error) {
     console.error("Error generating share link:", error);
-    return { success: false, message: `Failed to generate share link: ${error.message}` };
+    return {
+      success: false,
+      message: "Failed to generate share link: " + error.message
+    };
   }
 }
 

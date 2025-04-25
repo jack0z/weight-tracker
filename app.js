@@ -51,6 +51,8 @@ export default function WeightTracker() {
   const [shareLink, setShareLink] = useState("");
   const [viewMode, setViewMode] = useState(false);
   const [viewData, setViewData] = useState(null);
+  const [showShareDropdown, setShowShareDropdown] = useState(false);
+  const [isSharingInProgress, setIsSharingInProgress] = useState(false);
   
   // Toggle theme function
   const toggleTheme = () => {
@@ -454,102 +456,155 @@ export default function WeightTracker() {
     };
   }
 
-  // Add this new useEffect to check for view mode in URL
-  useEffect(() => {
-    if (isClient && typeof window !== 'undefined') {
-      // Check for view mode in URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const viewParam = urlParams.get('view');
-      
-      if (viewParam) {
-        console.log("View mode detected:", viewParam);
-        
-        // Load shared data
-        (async () => {
-          const result = await Share.loadSharedView(viewParam);
-          
-          if (result.success) {
-            setViewMode(true);
-            setViewData(result.data);
-            
-            // Set theme from shared data
-            if (result.data.theme) {
-              setTheme(result.data.theme);
-              
-              // Directly apply theme to document
-              if (result.data.theme === "dark") {
-                document.documentElement.classList.add("dark");
-              } else {
-                document.documentElement.classList.remove("dark");
-              }
-            }
-            
-            setTimeout(() => {
-              toast.success("Viewing shared weight data", {
-                style: {
-                  background: theme === 'dark' ? "#313338" : "#ffffff",
-                  color: theme === 'dark' ? "#e3e5e8" : "#374151",
-                  border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-                }
-              });
-            }, 500);
-          } else {
-            setTimeout(() => {
-              toast.error(result.message, {
-                style: {
-                  background: theme === 'dark' ? "#313338" : "#ffffff",
-                  color: theme === 'dark' ? "#e3e5e8" : "#374151",
-                  border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-                }
-              });
-            }, 500);
-          }
-        })();
-      }
-    }
-  }, [isClient]); // Only run when isClient changes, not on theme changes
-
   // Generate and share a link
-  const handleShareLink = () => {
-    if (!isLoggedIn) {
-      toast.error("You must be logged in to share your tracker", {
-        style: {
-          background: theme === 'dark' ? "#313338" : "#ffffff",
-          color: theme === 'dark' ? "#e3e5e8" : "#374151",
-          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-        }
-      });
-      return;
-    }
+  const handleShare = async (usePermalink = false) => {
+    setIsSharingInProgress(true);
     
-    const result = Share.generateShareLink(
-      currentUser,
-      entries,
-      startWeight,
-      goalWeight,
-      height,
-      theme
-    );
-    
-    if (result.success) {
-      setShareLink(result.shareLink);
-      setShowShareModal(true);
-    } else {
-      toast.error(result.message, {
-        style: {
-          background: theme === 'dark' ? "#313338" : "#ffffff",
-          color: theme === 'dark' ? "#e3e5e8" : "#374151",
-          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-        }
-      });
+    try {
+      const result = await Share.generateShareLink(
+        currentUser, 
+        entries, 
+        startWeight, 
+        goalWeight, 
+        height, 
+        theme,
+        usePermalink
+      );
+      
+      if (result.success) {
+        setShareLink(result.shareLink);
+        setIsCurrentSharePermalink(result.isPermalink || false);
+        setShowShareModal(true);
+        setShowShareDropdown(false); // Close dropdown after selection
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error) {
+      console.error("Share error:", error);
+      toast.error('Failed to generate share link. Please try again.');
+    } finally {
+      setIsSharingInProgress(false);
     }
   };
-  
-  // Exit view mode
-  const handleExitViewMode = () => {
-    // Instead of just updating state, fully reload the page
-    // This ensures a clean state with no lingering permissions
-    window.location.href = window.location.origin;
+
+  // Create demo share data for Netlify deployment
+  const createDemoShareData = (forcePermalink = false) => {
+    try {
+      // For demo view links in Netlify, make sure the data exists
+      if (typeof window !== 'undefined') {
+        const demoShareId = forcePermalink ? 'demo_permalink' : 'demo_share';
+        
+        // Check if demo data already exists (or override for permalink)
+        if (forcePermalink || !localStorage.getItem(`shared_${demoShareId}`)) {
+          console.log(forcePermalink ? "Creating permalink demo data" : "Creating general demo share data");
+          
+          // Create demo entries - last 30 days with a weight loss trend
+          const demoEntries = [];
+          const today = new Date();
+          
+          for (let i = 0; i < 30; i++) {
+            const entryDate = new Date();
+            entryDate.setDate(today.getDate() - i);
+            
+            // Start at 80kg and go down by 0.1kg each day, with some random variation
+            const baseWeight = 80 - (i * 0.1);
+            const variation = Math.random() * 0.4 - 0.2; // -0.2 to +0.2 variation
+            const weight = (baseWeight + variation).toFixed(1);
+            
+            demoEntries.push({
+              date: entryDate.toISOString().split('T')[0],
+              weight: weight
+            });
+          }
+          
+          // Create share package
+          const demoShareData = {
+            entries: demoEntries,
+            startWeight: "80.0",
+            goalWeight: "75.0",
+            height: "175",
+            theme: "light",
+            sharedBy: forcePermalink ? "Demo Permalink" : "Demo User",
+            sharedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // Expires in 1 year
+            isPermalink: forcePermalink
+          };
+          
+          // Save to localStorage
+          localStorage.setItem(`shared_${demoShareId}`, JSON.stringify(demoShareData));
+          
+          console.log(forcePermalink ? "Permalink demo data created" : "General demo share data created");
+          return demoShareData;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Error in createDemoShareData:", error);
+      // Return a simple placeholder as fallback
+      return {
+        entries: [{
+          date: new Date().toISOString().split('T')[0],
+          weight: "75.0"
+        }],
+        startWeight: "80.0",
+        goalWeight: "70.0",
+        height: "175",
+        theme: "light",
+        sharedBy: "Demo Fallback",
+        sharedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+      };
+    }
+  };
+
+  // Create a demo permalink that's always available
+  const createDemoPermalink = () => {
+    console.log("Creating demo permalink for README link");
+    
+    // Create demo entries - last 30 days with a weight loss trend
+    const demoEntries = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 30; i++) {
+      const entryDate = new Date();
+      entryDate.setDate(today.getDate() - i);
+      
+      // Make a nice trend pattern
+      let weight;
+      if (i < 10) {
+        // First 10 days - good progress
+        weight = (80 - (i * 0.2)).toFixed(1);
+      } else if (i < 20) {
+        // Middle 10 days - plateau
+        weight = (78 - ((i-10) * 0.05)).toFixed(1);
+      } else {
+        // Last 10 days - progress again
+        weight = (77.5 - ((i-20) * 0.15)).toFixed(1);
+      }
+      
+      demoEntries.push({
+        date: entryDate.toISOString().split('T')[0],
+        weight: weight
+      });
+    }
+    
+    // Create share package with nice consistent data
+    const demoShareData = {
+      entries: demoEntries,
+      startWeight: "80.0",
+      goalWeight: "75.0",
+      height: "180",
+      theme: "light",
+      sharedBy: "Demo User",
+      sharedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // Expires in 1 year
+      isPermalink: true
+    };
+    
+    // Save to localStorage with demo_permalink ID
+    localStorage.setItem("shared_demo_permalink", JSON.stringify(demoShareData));
+    console.log("Demo permalink created successfully");
   };
 
   // Show login screen if not logged in
@@ -621,33 +676,60 @@ export default function WeightTracker() {
             </h2>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-sm mr-2">{currentUser}</span>
-            {/* Add Share Button */}
-            <button
-              onClick={handleShareLink}
-              className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
-              title="Share your progress"
-            >
-              <Share2 size={16} className="text-white" />
-            </button>
-            <button
-              onClick={toggleTheme}
-              className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
-              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            >
-              {theme === 'dark' ? (
-                <Sun size={16} className="text-white" />
-              ) : (
-                <Moon size={16} className="text-white" />
-              )}
-            </button>
-            <button 
-              onClick={handleUserLogout} 
-              className={`p-2 rounded-full ${theme === 'dark' ? 'bg-[#ed4245] hover:bg-[#eb2c30]' : 'bg-[#F85552] hover:bg-[#e04b48]'}`}
-              title="Log Out"
-            >
-              <LogOut size={16} className="text-white" />
-            </button>
+            <div className="flex items-center space-x-2 w-full sm:w-auto justify-center sm:justify-end">
+              <span className="text-sm mr-2">{currentUser}</span>
+              {/* Add Share Button with Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowShareDropdown(!showShareDropdown)}
+                  className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
+                  title="Share your progress"
+                >
+                  <Share2 size={16} className="text-white" />
+                </button>
+                
+                {showShareDropdown && (
+                  <div className={`absolute right-0 top-full mt-1 w-48 rounded-md shadow-lg ${colors.cardBg} z-10 border ${colors.border}`}>
+                    <div className="rounded-md">
+                      <div className="py-1">
+                        <button
+                          onClick={() => handleShare(false)}
+                          className={`block px-4 py-2 text-sm ${colors.text} w-full text-left hover:bg-opacity-20 hover:bg-gray-100`}
+                          disabled={isSharingInProgress}
+                        >
+                          {isSharingInProgress ? 'Creating Share...' : 'Create One-time Share'}
+                        </button>
+                        <button
+                          onClick={() => handleShare(true)}
+                          className={`block px-4 py-2 text-sm ${colors.text} w-full text-left hover:bg-opacity-20 hover:bg-gray-100`}
+                          disabled={isSharingInProgress}
+                        >
+                          {isSharingInProgress ? 'Creating Share...' : 'Create Permalink (overrides previous)'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={toggleTheme}
+                className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
+                title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              >
+                {theme === 'dark' ? (
+                  <Sun size={16} className="text-white" />
+                ) : (
+                  <Moon size={16} className="text-white" />
+                )}
+              </button>
+              <button 
+                onClick={handleUserLogout} 
+                className={`p-2 rounded-full ${theme === 'dark' ? 'bg-[#ed4245] hover:bg-[#eb2c30]' : 'bg-[#F85552] hover:bg-[#e04b48]'}`}
+                title="Log Out"
+              >
+                <LogOut size={16} className="text-white" />
+              </button>
+            </div>
           </div>
         </div>
         

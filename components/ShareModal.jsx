@@ -10,8 +10,9 @@ import { toast } from 'sonner';
  * @param {function} props.onClose - Function to close the modal
  * @param {string} props.shareLink - The generated share link
  * @param {string} props.theme - Current theme (dark or light)
+ * @param {boolean} props.isPermalink - Whether this is a permalink share
  */
-export default function ShareModal({ isOpen, onClose, shareLink, theme }) {
+export default function ShareModal({ isOpen, onClose, shareLink, theme, isPermalink }) {
   const [isCopied, setIsCopied] = useState(false);
   
   if (!isOpen) return null;
@@ -60,7 +61,9 @@ export default function ShareModal({ isOpen, onClose, shareLink, theme }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className={`${colors.bg} ${colors.border} border rounded-lg shadow-lg w-full max-w-md mx-4`}>
         <div className="flex justify-between items-center border-b p-4">
-          <h3 className={`text-lg font-medium ${colors.text}`}>Share Your Progress</h3>
+          <h3 className={`text-lg font-medium ${colors.text}`}>
+            {isPermalink ? "Permalink Created" : "Share Your Progress"}
+          </h3>
           <button 
             onClick={onClose}
             className="text-gray-400 hover:text-gray-500"
@@ -72,7 +75,9 @@ export default function ShareModal({ isOpen, onClose, shareLink, theme }) {
         
         <div className="p-4">
           <p className={`mb-4 ${colors.muted}`}>
-            Share this link with others to let them view your weight tracking data in read-only mode:
+            {isPermalink 
+              ? "This permalink will always show your latest weight tracking data:"
+              : "Share this link with others to let them view your weight tracking data in read-only mode:"}
           </p>
           
           <div className="flex items-center mb-6">
@@ -94,8 +99,16 @@ export default function ShareModal({ isOpen, onClose, shareLink, theme }) {
           <div className={`p-3 rounded-md ${colors.noteBg} ${colors.muted} text-sm`}>
             <p className="mb-1">⚠️ Important notes:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>The link expires in 30 days</li>
-              <li>Shared data is stored locally in your browser</li>
+              {isPermalink ? (
+                <>
+                  <li>This is a permanent link that will never expire</li>
+                  <li>The link will always show your latest data</li>
+                  <li>You can only have one permalink at a time</li>
+                </>
+              ) : (
+                <li>The link expires in 30 days</li>
+              )}
+              <li>Shared data is stored in the app for viewing</li>
               <li>Anyone with this link can view your data but cannot edit it</li>
               <li>Updates to your tracker will be visible to anyone with the link</li>
             </ul>
