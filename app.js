@@ -465,44 +465,46 @@ export default function WeightTracker() {
         console.log("View mode detected:", viewParam);
         
         // Load shared data
-        const result = Share.loadSharedView(viewParam);
-        
-        if (result.success) {
-          setViewMode(true);
-          setViewData(result.data);
+        (async () => {
+          const result = await Share.loadSharedView(viewParam);
           
-          // Set theme from shared data
-          if (result.data.theme) {
-            setTheme(result.data.theme);
+          if (result.success) {
+            setViewMode(true);
+            setViewData(result.data);
             
-            // Directly apply theme to document
-            if (result.data.theme === "dark") {
-              document.documentElement.classList.add("dark");
-            } else {
-              document.documentElement.classList.remove("dark");
+            // Set theme from shared data
+            if (result.data.theme) {
+              setTheme(result.data.theme);
+              
+              // Directly apply theme to document
+              if (result.data.theme === "dark") {
+                document.documentElement.classList.add("dark");
+              } else {
+                document.documentElement.classList.remove("dark");
+              }
             }
+            
+            setTimeout(() => {
+              toast.success("Viewing shared weight data", {
+                style: {
+                  background: theme === 'dark' ? "#313338" : "#ffffff",
+                  color: theme === 'dark' ? "#e3e5e8" : "#374151",
+                  border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+                }
+              });
+            }, 500);
+          } else {
+            setTimeout(() => {
+              toast.error(result.message, {
+                style: {
+                  background: theme === 'dark' ? "#313338" : "#ffffff",
+                  color: theme === 'dark' ? "#e3e5e8" : "#374151",
+                  border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+                }
+              });
+            }, 500);
           }
-          
-          setTimeout(() => {
-            toast.success("Viewing shared weight data", {
-              style: {
-                background: theme === 'dark' ? "#313338" : "#ffffff",
-                color: theme === 'dark' ? "#e3e5e8" : "#374151",
-                border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-              }
-            });
-          }, 500);
-        } else {
-          setTimeout(() => {
-            toast.error(result.message, {
-              style: {
-                background: theme === 'dark' ? "#313338" : "#ffffff",
-                color: theme === 'dark' ? "#e3e5e8" : "#374151",
-                border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-              }
-            });
-          }, 500);
-        }
+        })();
       }
     }
   }, [isClient]); // Only run when isClient changes, not on theme changes

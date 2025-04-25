@@ -46,6 +46,12 @@ export default function ViewMode({
     },
     series: [{ name: 'Weight', data: [] }]
   });
+  const [isClient, setIsClient] = useState(false);
+
+  // Set isClient once component mounts
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Define colors based on theme
   const colors = {
@@ -155,13 +161,15 @@ export default function ViewMode({
 
   // Add an effect to forcibly apply theme when it changes
   useEffect(() => {
+    if (!isClient) return;
+    
     // Apply theme to document directly in the component
     if (theme === "dark") {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
     }
-  }, [theme]);
+  }, [theme, isClient]);
 
   // Get trend icon
   const getTrendIcon = (value) => {
