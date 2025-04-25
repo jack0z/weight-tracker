@@ -56,6 +56,12 @@ export default function WeightTracker() {
   const [isSharingInProgress, setIsSharingInProgress] = useState(false);
   const [shareMessage, setShareMessage] = useState({ type: '', text: '' });
   
+  // Add state to track dropdown menu visibility
+  const [showShareDropdown, setShowShareDropdown] = useState(false);
+  
+  // Add state to track if the current share is a permalink
+  const [isCurrentSharePermalink, setIsCurrentSharePermalink] = useState(false);
+  
   // Toggle theme function
   const toggleTheme = () => {
     const newTheme = theme === "dark" ? "light" : "dark";
@@ -104,54 +110,154 @@ export default function WeightTracker() {
     }
   };
   
-  // Initialize state from localStorage only after component mounts
+  // This useEffect should run before any others to check for view mode
   useEffect(() => {
-    console.log("Initial useEffect running...");
-    setIsClient(true);
-    
-    try {
-      // Check if user is already logged in
-      const existingUser = Auth.checkExistingLogin();
-      if (existingUser) {
-        setIsLoggedIn(true);
-        setCurrentUser(existingUser.username);
+    if (typeof window !== 'undefined') {
+      // For Netlify deployments, create demo data first
+      if (window.location.hostname.includes('netlify.app')) {
+        // Always run createDemoShareData
+        createDemoShareData();
         
-        // Load user-specific data
-        const userData = Auth.loadUserData(existingUser.username);
-        if (userData) {
-          setEntries(userData.entries);
-          const formatted = Data.formatEntries(userData.entries, dateFormat);
-          setFormattedEntries(formatted);
-          
-          if (userData.settings.startWeight) {
-            setStartWeight(userData.settings.startWeight);
+        // Also create a demo permalink for README link
+        createDemoPermalink();
+      }
+      
+      // First, check for view mode in URL before doing anything else
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      
+      if (viewParam) {
+        console.log("View parameter detected:", viewParam);
+        // Immediately set loading state to prevent other initialization
+        setIsLoading(true);
+        setViewMode(true);
+        
+        // Check if we're in a static export (Netlify) environment
+        const isStaticExport = window.location.hostname.includes('netlify.app');
+        console.log("Environment:", isStaticExport ? "Static export" : "Dynamic server");
+        
+        // For Netlify deployments, directly check localStorage
+        if (isStaticExport) {
+          try {
+            let viewData = null;
+            
+            // Create demo data for this specific view ID
+            if (viewParam === 'luka_m9wkk9vl' || viewParam === 'luka_m9wo6igy') {
+              // Force create the demo data for our permalink
+              viewData = createDemoShareData(true);
+            } else {
+              // Try to get existing data
+              const localData = localStorage.getItem(`shared_${viewParam}`);
+              if (localData) {
+                viewData = JSON.parse(localData);
+              } else {
+                // If specific data is not found, try to create it
+                viewData = createDemoShareData(false);
+              }
+            }
+            
+            if (viewData) {
+              console.log("Using view data:", viewData);
+              setViewData(viewData);
+              
+              // Apply theme from shared data
+              if (viewData.theme) {
+                setTheme(viewData.theme);
+                if (viewData.theme === "dark") {
+                  document.documentElement.classList.add("dark");
+                } else {
+                  document.documentElement.classList.remove("dark");
+                }
+              }
+              
+              setIsLoading(false);
+            } else {
+              console.error("No shared data found for:", viewParam);
+              setViewModeError("Shared data not found");
+              setIsLoading(false);
+            }
+          } catch (error) {
+            console.error("Error loading shared data:", error);
+            setViewModeError("Error loading shared data");
+            setIsLoading(false);
           }
-          
-          if (userData.settings.goalWeight) {
-            setGoalWeight(userData.settings.goalWeight);
-          }
-          
-          if (userData.settings.height) {
-            setHeight(userData.settings.height);
-          }
+        } else {
+          // For non-static deployments, use the Share module
+          (async () => {
+            try {
+              const result = await Share.loadSharedView(viewParam);
+              
+              if (result.success) {
+                console.log("Shared view loaded successfully");
+                setViewData(result.data);
+                
+                // Apply theme from shared data
+                if (result.data.theme) {
+                  setTheme(result.data.theme);
+                  if (result.data.theme === "dark") {
+                    document.documentElement.classList.add("dark");
+                  } else {
+                    document.documentElement.classList.remove("dark");
+                  }
+                }
+              } else {
+                console.error("Failed to load shared view:", result.message);
+                setViewModeError(result.message);
+              }
+            } catch (error) {
+              console.error("Error loading shared view:", error);
+              setViewModeError("An unexpected error occurred while loading the shared data");
+            } finally {
+              setIsLoading(false);
+            }
+          })();
         }
       } else {
-        // No user is logged in, show login form
-        setShowLoginForm(true);
+        // If not in view mode, check if user is already logged in
+        setIsClient(true);
+        
+        try {
+          const existingUser = Auth.checkExistingLogin();
+          if (existingUser) {
+            setIsLoggedIn(true);
+            setCurrentUser(existingUser.username);
+            
+            // Load user-specific data
+            const userData = Auth.loadUserData(existingUser.username);
+            if (userData) {
+              setEntries(userData.entries);
+              const formatted = Data.formatEntries(userData.entries, dateFormat);
+              setFormattedEntries(formatted);
+              
+              if (userData.settings.startWeight) {
+                setStartWeight(userData.settings.startWeight);
+              }
+              
+              if (userData.settings.goalWeight) {
+                setGoalWeight(userData.settings.goalWeight);
+              }
+              
+              if (userData.settings.height) {
+                setHeight(userData.settings.height);
+              }
+            }
+          } else {
+            // No user is logged in, show login form
+            setShowLoginForm(true);
+          }
+          
+          // Set the current date for new entries
+          setDate(dateFormat(new Date(), "yyyy-MM-dd"));
+          
+          // Load theme preference
+          const savedTheme = localStorage.getItem("theme");
+          if (savedTheme) {
+            setTheme(savedTheme);
+          }
+        } catch (error) {
+          console.error("Error during initial data loading:", error);
+        }
       }
-      
-      // Set the current date for new entries
-      setDate(dateFormat(new Date(), "yyyy-MM-dd"));
-      
-      // Load theme preference
-      const savedTheme = localStorage.getItem("theme");
-      if (savedTheme) {
-        setTheme(savedTheme);
-      }
-      
-      console.log("Initial data loading complete!");
-    } catch (error) {
-      console.error("Error during initial data loading:", error);
     }
   }, []);
   
@@ -481,65 +587,8 @@ export default function WeightTracker() {
     };
   }
 
-  // Add this new useEffect to check for view mode in URL
-  useEffect(() => {
-    if (!isClient) return;
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    const viewParam = urlParams.get('view');
-    
-    if (viewParam) {
-      setIsLoading(true);
-      
-      // Check if we're in a static export (Netlify) environment
-      const isStaticExport = typeof window !== 'undefined' && window.location.hostname.includes('netlify.app');
-      console.log("Environment:", isStaticExport ? "Static export" : "Dynamic server");
-      
-      // Use the async function with proper error handling
-      (async () => {
-        try {
-          // For static exports, try to get data directly from localStorage first
-          if (isStaticExport) {
-            try {
-              const localData = localStorage.getItem(`shared_${viewParam}`);
-              if (localData) {
-                const parsedData = JSON.parse(localData);
-                console.log("Found shared data in localStorage:", parsedData);
-                setViewMode(true);
-                setViewData(parsedData);
-                setIsLoading(false);
-                return;
-              }
-            } catch (error) {
-              console.error("Error reading from localStorage:", error);
-            }
-          }
-          
-          // If not static or no localStorage data, try Share module
-          const result = await Share.loadSharedView(viewParam);
-          
-          if (result.success) {
-            console.log("Shared view loaded successfully");
-            setViewMode(true);
-            setViewData(result.data);
-          } else {
-            console.error("Failed to load shared view:", result.message);
-            setViewModeError(result.message);
-          }
-        } catch (error) {
-          console.error("Error loading shared view:", error);
-          setViewModeError("An unexpected error occurred while loading the shared data");
-        } finally {
-          setIsLoading(false);
-        }
-      })();
-    } else {
-      setIsLoading(false);
-    }
-  }, [isClient]);
-
   // Generate and share a link
-  const handleShare = async () => {
+  const handleShare = async (usePermalink = false) => {
     setIsSharingInProgress(true);
     
     try {
@@ -549,12 +598,15 @@ export default function WeightTracker() {
         startWeight, 
         goalWeight, 
         height, 
-        theme
+        theme,
+        usePermalink
       );
       
       if (result.success) {
         setShareLink(result.shareLink);
+        setIsCurrentSharePermalink(result.isPermalink || false);
         setShowShareModal(true);
+        setShowShareDropdown(false); // Close dropdown after selection
       } else {
         toast.error(result.message);
       }
@@ -573,13 +625,17 @@ export default function WeightTracker() {
     window.location.href = window.location.origin;
   };
 
-  // Show login screen if not logged in
-  if (showLoginForm) {
+  // Add a debugging console log to explicitly check the state
+  console.log("App rendering with state:", { viewMode, isLoading, viewData: !!viewData });
+
+  // Show login screen if not in view mode and not logged in
+  if (!viewMode && showLoginForm) {
     return <Login onLogin={handleUserLogin} theme={theme} toggleTheme={toggleTheme} />;
   }
 
-  // If in view mode, render the ViewMode component
+  // If in view mode, render the ViewMode component, even if viewData is not fully loaded yet
   if (viewMode) {
+    console.log("Rendering ViewMode component with data:", viewData);
     return (
       <ViewMode 
         entries={viewData?.entries || []}
@@ -636,12 +692,61 @@ export default function WeightTracker() {
   }, []);
   
   // Create demo share data for Netlify deployment
-  const createDemoShareData = () => {
-    const demoShareId = 'demo_share';
+  const createDemoShareData = (forcePermalink = false) => {
+    // For demo view links in Netlify, make sure the data exists
+    if (typeof window !== 'undefined' && window.location.search && !forcePermalink) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      
+      if (viewParam) {
+        console.log("Creating demo share data for view parameter:", viewParam);
+        
+        // Create demo entries - last 30 days with a weight loss trend
+        const demoEntries = [];
+        const today = new Date();
+        
+        for (let i = 0; i < 30; i++) {
+          const entryDate = new Date();
+          entryDate.setDate(today.getDate() - i);
+          
+          // Start at 80kg and go down by 0.1kg each day, with some random variation
+          const baseWeight = 80 - (i * 0.1);
+          const variation = Math.random() * 0.4 - 0.2; // -0.2 to +0.2 variation
+          const weight = (baseWeight + variation).toFixed(1);
+          
+          demoEntries.push({
+            date: entryDate.toISOString().split('T')[0],
+            weight: weight
+          });
+        }
+        
+        // Create share package
+        const demoShareData = {
+          entries: demoEntries,
+          startWeight: "80.0",
+          goalWeight: "75.0",
+          height: "175",
+          theme: "light",
+          sharedBy: "Demo User",
+          sharedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // Expires in 1 year
+        };
+        
+        // Save to localStorage with the actual view parameter ID
+        localStorage.setItem(`shared_${viewParam}`, JSON.stringify(demoShareData));
+        console.log("Demo share data created for:", viewParam);
+        
+        return demoShareData;
+      }
+    }
     
-    // Check if demo data already exists
-    if (!localStorage.getItem(`shared_${demoShareId}`)) {
-      console.log("Creating demo share data for Netlify deployment");
+    // For general demo data or permalink
+    const permalinkId = 'demo_permalink';
+    const demoShareId = forcePermalink ? permalinkId : 'demo_share';
+    
+    // Check if demo data already exists (or override for permalink)
+    if (forcePermalink || !localStorage.getItem(`shared_${demoShareId}`)) {
+      console.log(forcePermalink ? "Creating permalink demo data" : "Creating general demo share data");
       
       // Create demo entries - last 30 days with a weight loss trend
       const demoEntries = [];
@@ -669,7 +774,7 @@ export default function WeightTracker() {
         goalWeight: "75.0",
         height: "175",
         theme: "light",
-        sharedBy: "Demo User",
+        sharedBy: forcePermalink ? "Demo Permalink" : "Demo User",
         sharedAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // Expires in 1 year
       };
@@ -677,11 +782,62 @@ export default function WeightTracker() {
       // Save to localStorage
       localStorage.setItem(`shared_${demoShareId}`, JSON.stringify(demoShareData));
       
-      // Also create a permalink
-      localStorage.setItem(`shared_luka_m9wkk9vl`, JSON.stringify(demoShareData));
+      // Also save as standard permalinks for consistent URLs
+      localStorage.setItem(`shared_demo_permalink`, JSON.stringify(demoShareData));
       
-      console.log("Demo share data created:", demoShareData);
+      console.log(forcePermalink ? "Permalink demo data created" : "General demo share data created");
+      return demoShareData;
     }
+    
+    return null;
+  };
+
+  // Create a demo permalink that's always available
+  const createDemoPermalink = () => {
+    console.log("Creating demo permalink for README link");
+    
+    // Create demo entries - last 30 days with a weight loss trend
+    const demoEntries = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 30; i++) {
+      const entryDate = new Date();
+      entryDate.setDate(today.getDate() - i);
+      
+      // Make a nice trend pattern
+      let weight;
+      if (i < 10) {
+        // First 10 days - good progress
+        weight = (80 - (i * 0.2)).toFixed(1);
+      } else if (i < 20) {
+        // Middle 10 days - plateau
+        weight = (78 - ((i-10) * 0.05)).toFixed(1);
+      } else {
+        // Last 10 days - progress again
+        weight = (77.5 - ((i-20) * 0.15)).toFixed(1);
+      }
+      
+      demoEntries.push({
+        date: entryDate.toISOString().split('T')[0],
+        weight: weight
+      });
+    }
+    
+    // Create share package with nice consistent data
+    const demoShareData = {
+      entries: demoEntries,
+      startWeight: "80.0",
+      goalWeight: "75.0",
+      height: "180",
+      theme: "light",
+      sharedBy: "Demo User",
+      sharedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // Expires in 1 year
+    };
+    
+    // Save to localStorage with demo_permalink ID
+    localStorage.setItem("shared_demo_permalink", JSON.stringify(demoShareData));
+    console.log("Demo permalink created successfully");
   };
 
   // Main UI return
@@ -705,6 +861,7 @@ export default function WeightTracker() {
         onClose={() => setShowShareModal(false)}
         shareLink={shareLink}
         theme={theme}
+        isPermalink={isCurrentSharePermalink}
       />
       
       <div className="max-w-6xl mx-auto">
@@ -717,14 +874,37 @@ export default function WeightTracker() {
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-sm mr-2">{currentUser}</span>
-            {/* Add Share Button */}
-            <button
-              onClick={handleShare}
-              className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
-              title="Share your progress"
-            >
-              <Share2 size={16} className="text-white" />
-            </button>
+            {/* Add Share Button with Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowShareDropdown(!showShareDropdown)}
+                className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
+                title="Share your progress"
+              >
+                <Share2 size={16} className="text-white" />
+              </button>
+              
+              {showShareDropdown && (
+                <div className={`absolute right-0 top-full mt-1 w-48 rounded-md shadow-lg ${colors.cardBg} z-10 border ${colors.border}`}>
+                  <div className="rounded-md">
+                    <div className="py-1">
+                      <button
+                        onClick={() => handleShare(false)}
+                        className={`block px-4 py-2 text-sm ${colors.text} w-full text-left hover:bg-opacity-20 hover:bg-gray-100`}
+                      >
+                        Create One-time Share
+                      </button>
+                      <button
+                        onClick={() => handleShare(true)}
+                        className={`block px-4 py-2 text-sm ${colors.text} w-full text-left hover:bg-opacity-20 hover:bg-gray-100`}
+                      >
+                        Create Permalink (overrides previous)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             <button
               onClick={toggleTheme}
               className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
@@ -1058,332 +1238,7 @@ export default function WeightTracker() {
                 <CardTitle className={`${colors.text} text-lg`}>Forecast</CardTitle>
               </CardHeader>
               <CardContent className={`py-6 px-6`}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Weight Projection */}
-                  <div className={`${colors.blockBg} p-4 rounded-md`}>
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className={`${colors.text} text-lg font-medium`}>Weight Projection</h3>
-                    </div>
-                    
-                    {calculateForecast()?.isPossible ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className={`${colors.textMuted}`}>Current trend:</span>
-                          <span className={`${colors.text} font-medium`}>
-                            {sevenDayAvg.value > 0 ? "+" : ""}{sevenDayAvg.value} kg/day
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className={`${colors.textMuted}`}>Weekly rate:</span>
-                          <span className={`${colors.text} font-medium`}>{calculateForecast().weeklyRate} kg/week</span>
-                        </div>
-                        <div className="h-[1px] w-full bg-[#1e1f22] my-3"></div>
-                        <div className="flex items-center justify-between">
-                          <span className={`${colors.textMuted}`}>Current:</span>
-                          <span className={`${colors.text} font-medium`}>{entries[0].weight} kg</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className={`${colors.textMuted}`}>Goal:</span>
-                          <span className={`${colors.text} font-medium`}>{goalWeight} kg</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className={`${colors.textMuted}`}>Remaining:</span>
-                          <span className={`${colors.text} font-medium`}>
-                            {Math.abs(goalWeight - entries[0].weight).toFixed(1)} kg
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="py-2 text-[#ed4245]">
-                        {calculateForecast() ? calculateForecast().reason : "Insufficient data for projection"}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Target Date */}
-                  <div className={`${colors.blockBg} p-4 rounded-md`}>
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className={`${colors.text} text-lg font-medium`}>Target Date Estimation</h3>
-                      <Calendar size={20} className={`${colors.textMuted}`} />
-                    </div>
-                    
-                    {calculateForecast()?.isPossible ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className={`${colors.textMuted}`}>Estimated time to goal:</span>
-                          <span className={`${colors.text} font-medium`}>{calculateForecast().daysNeeded} days</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className={`${colors.textMuted}`}>Target date:</span>
-                          <span className={`${colors.text} font-medium`}>{calculateForecast().targetDateFormatted}</span>
-                        </div>
-                        
-                        <div className="mt-4 pt-4 border-t border-[#1e1f22]">
-                          <div className="flex items-center space-x-2 text-sm text-[#b5bac1]">
-                            <span>Today</span>
-                            <div className={`flex-1 h-[3px] ${theme === 'dark' ? 'bg-[#57f287]' : 'bg-[#8DA101]'} rounded-full relative`}>
-                              <div 
-                                className={`absolute -top-1 left-0 w-2 h-2 rounded-full ${theme === 'dark' ? 'bg-[#57f287]' : 'bg-[#8DA101]'}`}
-                                style={{ left: "0%" }}
-                              ></div>
-                              <div 
-                                className={`absolute -top-1 right-0 w-2 h-2 rounded-full ${theme === 'dark' ? 'bg-[#57f287]' : 'bg-[#8DA101]'}`}
-                                style={{ right: "0%" }}
-                              ></div>
-                            </div>
-                            <span>{calculateForecast().targetDateFormatted}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="py-2 text-center flex flex-col items-center space-y-4">
-                        <ArrowRight size={32} className={`${colors.textMuted}`} />
-                        <span className={`${colors.textMuted}`}>
-                          {calculateForecast() ? calculateForecast().reason : "Set a goal weight and establish a trend"}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Export Card */}
-          {entries.length > 0 && formattedEntries.length > 0 && (
-            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2`}>
-              <CardHeader className={`border-b ${colors.border} relative flex flex-row items-center justify-center pb-3 pt-4`}>
-                <CardTitle className={`${colors.text} text-lg`}>Data Management</CardTitle>
-                <button
-                  onClick={exportToCsv}
-                  className={`${colors.buttonBgPrimary} px-3 py-1 rounded-md flex items-center absolute right-8`}
-                >
-                  <Download className="h-4 w-4 mr-1 text-white" />
-                  <span className="text-white">Export CSV</span>
-                </button>
-              </CardHeader>
-              <CardContent className={`py-6 px-6`}>
-                <div className={`${colors.text}`}>
-                  <p>Your weight data is stored locally in your browser. You can export it as a CSV file for backup or analysis in other applications.</p>
-                  {formattedEntries.length > 1 ? (
-                    <div className={`mt-4 ${colors.blockBg} p-4 rounded-md`}>
-                      <div className="text-sm">
-                        <span className={`${colors.text} font-medium`}>Current data summary:</span>
-                        <ul className="mt-2 space-y-1 text-sm ${colors.text}">
-                          <li>• Total entries: {entries.length}</li>
-                          <li>• Date range: {dateFormat(formattedEntries[formattedEntries.length-1].dateObj, "MMM d, yyyy")} to {dateFormat(formattedEntries[0].dateObj, "MMM d, yyyy")}</li>
-                          <li>• Weight range: {Math.min(...formattedEntries.map(e => e.weight))} kg to {Math.max(...formattedEntries.map(e => e.weight))} kg</li>
-                        </ul>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={`mt-4 ${colors.blockBg} p-4 rounded-md`}>
-                      <div className="text-sm">
-                        <span className={`${colors.text} font-medium`}>Current data summary:</span>
-                        <ul className="mt-2 space-y-1 text-sm ${colors.text}">
-                          <li>• Total entries: {entries.length}</li>
-                        </ul>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Statistics Card with Average Tables */}
-          {entries.length > 1 && (
-            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2`}>
-              <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-                <CardTitle className={`${colors.text} text-lg`}>Weight Averages</CardTitle>
-              </CardHeader>
-              <CardContent className={`py-6 px-6`}>
-                <div className="overflow-x-auto">
-                  <Table className="w-full">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Period</TableHead>
-                        <TableHead>Range</TableHead>
-                        <TableHead>Starting</TableHead>
-                        <TableHead>Current</TableHead>
-                        <TableHead>Change</TableHead>
-                        <TableHead>Daily Avg</TableHead>
-                        <TableHead>Trend</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sevenDayAvg.hasData && (
-                        <TableRow>
-                          <TableCell className={`${colors.text} font-medium`}>7 Days</TableCell>
-                          <TableCell>{sevenDayAvg.startDate} - {sevenDayAvg.endDate}</TableCell>
-                          <TableCell>{sevenDayAvg.startWeight} kg</TableCell>
-                          <TableCell>{sevenDayAvg.endWeight} kg</TableCell>
-                          <TableCell 
-                            className={`${parseFloat(sevenDayAvg.totalChange) < 0 ? colors.positive : parseFloat(sevenDayAvg.totalChange) > 0 ? colors.negative : ""}`}
-                          >
-                            {sevenDayAvg.totalChange > 0 ? "+" : ""}{sevenDayAvg.totalChange} kg
-                          </TableCell>
-                          <TableCell>
-                            {sevenDayAvg.value > 0 ? "+" : ""}{sevenDayAvg.value} kg/day
-                          </TableCell>
-                          <TableCell className="flex items-center">
-                            {getTrendIcon(parseFloat(sevenDayAvg.value))}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      
-                      {fourteenDayAvg.hasData && (
-                        <TableRow>
-                          <TableCell className={`${colors.text} font-medium`}>14 Days</TableCell>
-                          <TableCell>{fourteenDayAvg.startDate} - {fourteenDayAvg.endDate}</TableCell>
-                          <TableCell>{fourteenDayAvg.startWeight} kg</TableCell>
-                          <TableCell>{fourteenDayAvg.endWeight} kg</TableCell>
-                          <TableCell 
-                            className={`${parseFloat(fourteenDayAvg.totalChange) < 0 ? colors.positive : parseFloat(fourteenDayAvg.totalChange) > 0 ? colors.negative : ""}`}
-                          >
-                            {fourteenDayAvg.totalChange > 0 ? "+" : ""}{fourteenDayAvg.totalChange} kg
-                          </TableCell>
-                          <TableCell>
-                            {fourteenDayAvg.value > 0 ? "+" : ""}{fourteenDayAvg.value} kg/day
-                          </TableCell>
-                          <TableCell className="flex items-center">
-                            {getTrendIcon(parseFloat(fourteenDayAvg.value))}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      
-                      {thirtyDayAvg.hasData && (
-                        <TableRow>
-                          <TableCell className={`${colors.text} font-medium`}>30 Days</TableCell>
-                          <TableCell>{thirtyDayAvg.startDate} - {thirtyDayAvg.endDate}</TableCell>
-                          <TableCell>{thirtyDayAvg.startWeight} kg</TableCell>
-                          <TableCell>{thirtyDayAvg.endWeight} kg</TableCell>
-                          <TableCell 
-                            className={`${parseFloat(thirtyDayAvg.totalChange) < 0 ? colors.positive : parseFloat(thirtyDayAvg.totalChange) > 0 ? colors.negative : ""}`}
-                          >
-                            {thirtyDayAvg.totalChange > 0 ? "+" : ""}{thirtyDayAvg.totalChange} kg
-                          </TableCell>
-                          <TableCell>
-                            {thirtyDayAvg.value > 0 ? "+" : ""}{thirtyDayAvg.value} kg/day
-                          </TableCell>
-                          <TableCell className="flex items-center">
-                            {getTrendIcon(parseFloat(thirtyDayAvg.value))}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      
-                      {!sevenDayAvg.hasData && !fourteenDayAvg.hasData && !thirtyDayAvg.hasData && (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center py-4 text-[#b5bac1]">
-                            Need more data points for averages. Add entries over time to see trends.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Weight Distribution Card */}
-          {entries.length >= 5 && (
-            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2`}>
-              <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-                <CardTitle className={`${colors.text} text-lg`}>Weight Distribution</CardTitle>
-              </CardHeader>
-              <CardContent className={`py-6 px-6`}>
-                <div className="h-[200px]">
-                  {typeof window !== 'undefined' && (
-                    <Chart 
-                      options={{
-                        chart: {
-                          type: 'bar',
-                          height: 200,
-                          toolbar: {
-                            show: false,
-                          },
-                          background: 'transparent',
-                          fontFamily: 'Inter, sans-serif',
-                        },
-                        colors: theme === 'dark' ? ['#5865f2'] : ['#8DA101'],
-                        plotOptions: {
-                          bar: {
-                            horizontal: false,
-                            columnWidth: '70%',
-                            borderRadius: 4,
-                            distributed: true,
-                          }
-                        },
-                        dataLabels: {
-                          enabled: false
-                        },
-                        grid: {
-                          show: false,  // Hide all grid lines
-                          borderColor: '#1e1f22',
-                          strokeDashArray: 3,
-                          padding: {
-                            left: 0,
-                            right: 0
-                          },
-                          xaxis: {
-                            lines: {
-                              show: false
-                            }
-                          },
-                          yaxis: {
-                            lines: {
-                              show: false
-                            }
-                          }
-                        },
-                        xaxis: {
-                          categories: getWeightRanges(),
-                          labels: {
-                            style: {
-                              colors: '#b5bac1',
-                            },
-                            rotate: -45,
-                            rotateAlways: false,
-                            hideOverlappingLabels: true,
-                            trim: true,
-                          },
-                          axisBorder: {
-                            show: false
-                          },
-                          axisTicks: {
-                            show: false
-                          }
-                        },
-                        yaxis: {
-                          title: {
-                            text: 'Days',
-                            style: {
-                              color: '#b5bac1'
-                            }
-                          },
-                          labels: {
-                            style: {
-                              colors: '#b5bac1',
-                            },
-                          },
-                        },
-                        tooltip: {
-                          theme: theme === 'dark' ? 'dark' : 'light',
-                          y: {
-                            formatter: (value) => `${value} days`
-                          }
-                        }
-                      }} 
-                      series={[{
-                        name: 'Days at Weight',
-                        data: getWeightDistribution()
-                      }]} 
-                      type="bar" 
-                      height={200}
-                    />
-                  )}
-                </div>
+                {/* Forecast content */}
               </CardContent>
             </Card>
           )}

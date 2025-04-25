@@ -11,9 +11,15 @@ function isIndexedDBSupported() {
 /**
  * Generate a unique ID for the share link
  * @param {string} username - The username of the current user
+ * @param {boolean} usePermalink - Whether to use a consistent permalink ID
  * @returns {string} - A unique share ID
  */
-function generateShareId(username) {
+function generateShareId(username, usePermalink = false) {
+  if (usePermalink) {
+    // Create a consistent ID for permalinks
+    return `${username}_permalink`;
+  }
+  // Otherwise use timestamp for unique IDs
   return `${username}_${Date.now().toString(36)}`;
 }
 
@@ -48,9 +54,10 @@ function createSharePackage(entries, startWeight, goalWeight, height, theme, use
  * @param {string|number} goalWeight - Goal weight
  * @param {string|number} height - User height
  * @param {string} theme - Current theme
+ * @param {boolean} usePermalink - Whether to use a consistent permalink ID
  * @returns {Object} - Result object with success status, message, and shareLink if successful
  */
-async function generateShareLink(username, entries, startWeight, goalWeight, height, theme) {
+async function generateShareLink(username, entries, startWeight, goalWeight, height, theme, usePermalink = false) {
   if (!username) {
     return { success: false, message: "You must be logged in to share your tracker" };
   }
@@ -60,8 +67,8 @@ async function generateShareLink(username, entries, startWeight, goalWeight, hei
   }
   
   try {
-    // Generate a unique ID for sharing
-    const shareId = generateShareId(username);
+    // Generate a unique ID for sharing (or a consistent one for permalinks)
+    const shareId = generateShareId(username, usePermalink);
     
     // Create the data package to share
     const dataToShare = createSharePackage(entries, startWeight, goalWeight, height, theme, username);
@@ -109,9 +116,10 @@ async function generateShareLink(username, entries, startWeight, goalWeight, hei
     
     return { 
       success: true, 
-      message: "Share link generated successfully", 
+      message: usePermalink ? "Permalink generated successfully" : "Share link generated successfully", 
       shareLink,
-      shareId 
+      shareId,
+      isPermalink: usePermalink
     };
   } catch (error) {
     console.error("Error generating share link:", error);
