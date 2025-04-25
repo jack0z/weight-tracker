@@ -2,23 +2,18 @@
   command = "npm run build"
   publish = "out"
 
-# Handle 404s with custom page
-[[redirects]]
-  from = "/*"
-  to = "/share-fallback"
-  status = 200
-  force = false
-  conditions = {Path = {pattern = "^/share/(?!demo_share|demo_permalink).+$"}}
-
-# Handle direct access to share pages
+# Handle direct access to share IDs
 [[redirects]]
   from = "/share/*"
   to = "/share-fallback?id=:splat"
   status = 200
-  force = false
 
-# For everything else, serve the index.html
+# For all other routes, serve the index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
-  status = 200 
+  status = 200
+
+# Use the Netlify Next.js plugin
+[[plugins]]
+  package = "@netlify/plugin-nextjs" 

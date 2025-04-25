@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation';
 
-// This function is required for Next.js static exports
-// It pre-renders these specific routes at build time
+// This function is required for Next.js static exports with the App Router
+// It tells Next.js which static versions of this dynamic route to pre-render
 export async function generateStaticParams() {
+  // Return an array of route segment configurations for static generation
   return [
     { id: 'demo_share' },
     { id: 'demo_permalink' }
@@ -17,12 +18,12 @@ export default function SharePage({ params }) {
       <head>
         <title>Redirecting to Shared Weight Tracker</title>
         {/* Add meta refresh as a fallback */}
-        <meta httpEquiv="refresh" content={`0;url=/share-fallback#/share/${params.id}`} />
+        <meta httpEquiv="refresh" content={`0;url=/share-fallback?id=${params.id}`} />
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Script to redirect to the fallback page
-              window.location.href = "/share-fallback#/share/${params.id}";
+              // Script to redirect to the fallback page with query param
+              window.location.href = "/share-fallback?id=${params.id}";
             `,
           }}
         />
@@ -38,7 +39,7 @@ export default function SharePage({ params }) {
           <div style={{ textAlign: 'center' }}>
             <h1>Redirecting...</h1>
             <p>Please wait while we redirect you to the shared weight tracker.</p>
-            <p>If you are not redirected automatically, <a href={`/share-fallback#/share/${params.id}`}>click here</a>.</p>
+            <p>If you are not redirected automatically, <a href={`/share-fallback?id=${params.id}`}>click here</a>.</p>
           </div>
         </div>
       </body>

@@ -1,4 +1,4 @@
-// share.js - Sharing functionality for weight tracker
+// share.js - Sharing functionality for weight tracker (client-side)
 
 /**
  * Check if IndexedDB is supported by the browser

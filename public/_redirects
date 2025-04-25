@@ -1,2 +1,3 @@
 /* /share-fallback 200!
-/share/* /share-fallback 200 
+/share/* /share-fallback?id=:splat 200
+/* /index.html 200 
