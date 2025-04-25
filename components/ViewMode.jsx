@@ -41,6 +41,7 @@ export default function ViewMode({
   const [chartData, setChartData] = useState(null);
   const [isClient, setIsClient] = useState(false);
   const [localError, setLocalError] = useState("");
+  const [isChartReady, setIsChartReady] = useState(false);
 
   // Set isClient once component mounts
   useEffect(() => {
@@ -132,101 +133,151 @@ export default function ViewMode({
 
   // Format entries and prepare chart data
   useEffect(() => {
-    if (entries && entries.length > 0) {
-      // Format entries
-      const formatted = entries.map(e => ({
-        ...e,
-        dateFormatted: format(new Date(e.date), "MMM d, yyyy"),
-        dayFormatted: format(new Date(e.date), "EEEE"),
-        dateObj: new Date(e.date)
-      })).sort((a, b) => b.dateObj - a.dateObj);
-      
-      setFormattedEntries(formatted);
-      
-      // Prepare chart data
-      const chartColors = theme === 'dark' 
-        ? ['#8DA101', '#7289da', '#43b581'] 
-        : ['#8DA101', '#4e5d94', '#2e7d32'];
-        
-      const chartConfig = {
-        options: {
-          chart: {
-            type: 'area',
-            height: 350,
-            toolbar: {
-              show: false,
-            },
-            background: 'transparent',
-            fontFamily: 'Inter, sans-serif',
-          },
-          colors: chartColors,
-          dataLabels: {
-            enabled: false
-          },
-          stroke: {
-            curve: 'smooth',
-            width: 3,
-          },
-          fill: {
-            type: 'gradient',
-            gradient: {
-              shadeIntensity: 1,
-              opacityFrom: 0.7,
-              opacityTo: 0.2,
-              stops: [0, 90, 100]
-            }
-          },
-          grid: {
-            borderColor: theme === 'dark' ? '#1e1f22' : '#e5e7eb',
-            strokeDashArray: 3,
-            row: {
-              colors: ['transparent'],
-              opacity: 0.5
-            },
-          },
-          xaxis: {
-            type: 'datetime',
-            categories: [...formatted].reverse().map(e => e.date),
-            labels: {
-              style: {
-                colors: theme === 'dark' ? '#b5bac1' : '#6b7280',
-              },
-              format: 'MMM dd',
-            },
-            tooltip: {
-              enabled: false
-            }
-          },
-          yaxis: {
-            labels: {
-              formatter: function(val) {
-                return val.toFixed(1) + ' kg';
-              },
-              style: {
-                colors: theme === 'dark' ? '#b5bac1' : '#6b7280',
-              },
-            },
-          },
-          tooltip: {
-            x: {
-              format: 'MMM dd, yyyy'
-            },
-            y: {
-              formatter: function(val) {
-                return val.toFixed(1) + ' kg';
+    if (!isClient) return;
+    
+    try {
+      if (entries && Array.isArray(entries) && entries.length > 0) {
+        // Format entries with validation
+        const formatted = entries
+          .filter(e => e && e.date && e.weight) // Ensure we have valid entries
+          .map(e => {
+            try {
+              const dateObj = new Date(e.date);
+              // Ensure date is valid
+              if (isNaN(dateObj.getTime())) {
+                console.warn("Invalid date in entry:", e);
+                return null;
               }
+              
+              // Parse weight to ensure it's a number
+              const weightNum = parseFloat(e.weight);
+              if (isNaN(weightNum)) {
+                console.warn("Invalid weight in entry:", e);
+                return null;
+              }
+                
+              return {
+                ...e,
+                dateFormatted: format(dateObj, "MMM d, yyyy"),
+                dayFormatted: format(dateObj, "EEEE"),
+                dateObj,
+                weight: String(weightNum) // Ensure weight is a string
+              };
+            } catch (error) {
+              console.error("Error formatting entry:", error, e);
+              return null;
             }
-          }
-        },
-        series: [{
-          name: 'Weight',
-          data: [...formatted].reverse().map(e => parseFloat(e.weight))
-        }]
-      };
-      
-      setChartData(chartConfig);
+          })
+          .filter(Boolean) // Remove any null entries from errors
+          .sort((a, b) => b.dateObj - a.dateObj); // Sort by date, newest first
+        
+        setFormattedEntries(formatted);
+        
+        // Only proceed with chart if we have valid formatted entries
+        if (formatted.length > 0) {
+          // Prepare chart data
+          const chartColors = theme === 'dark' 
+            ? ['#8DA101', '#7289da', '#43b581'] 
+            : ['#8DA101', '#4e5d94', '#2e7d32'];
+          
+          // Safely create categories and data arrays for the chart
+          const categories = [...formatted]
+            .reverse()
+            .map(e => e.date);
+          
+          const weightData = [...formatted]
+            .reverse()
+            .map(e => parseFloat(e.weight));
+            
+          const chartConfig = {
+            options: {
+              chart: {
+                type: 'area',
+                height: 350,
+                toolbar: {
+                  show: false,
+                },
+                background: 'transparent',
+                fontFamily: 'Inter, sans-serif',
+              },
+              colors: chartColors,
+              dataLabels: {
+                enabled: false
+              },
+              stroke: {
+                curve: 'smooth',
+                width: 3,
+              },
+              fill: {
+                type: 'gradient',
+                gradient: {
+                  shadeIntensity: 1,
+                  opacityFrom: 0.7,
+                  opacityTo: 0.2,
+                  stops: [0, 90, 100]
+                }
+              },
+              grid: {
+                borderColor: theme === 'dark' ? '#1e1f22' : '#e5e7eb',
+                strokeDashArray: 3,
+                row: {
+                  colors: ['transparent'],
+                  opacity: 0.5
+                },
+              },
+              xaxis: {
+                type: 'datetime',
+                categories: categories,
+                labels: {
+                  style: {
+                    colors: theme === 'dark' ? '#b5bac1' : '#6b7280',
+                  },
+                  format: 'MMM dd',
+                },
+                tooltip: {
+                  enabled: false
+                }
+              },
+              yaxis: {
+                labels: {
+                  formatter: function(val) {
+                    return val.toFixed(1) + ' kg';
+                  },
+                  style: {
+                    colors: theme === 'dark' ? '#b5bac1' : '#6b7280',
+                  },
+                },
+              },
+              tooltip: {
+                x: {
+                  format: 'MMM dd, yyyy'
+                },
+                y: {
+                  formatter: function(val) {
+                    return val.toFixed(1) + ' kg';
+                  }
+                }
+              }
+            },
+            series: [{
+              name: 'Weight',
+              data: weightData
+            }]
+          };
+          
+          setChartData(chartConfig);
+          
+          // Add a small delay to ensure chart rendering occurs after state updates are processed
+          setTimeout(() => {
+            setIsChartReady(true);
+          }, 100);
+        }
+      }
+    } catch (error) {
+      console.error("Error processing entries for chart:", error);
+      setLocalError("Error preparing chart data: " + error.message);
     }
-  }, [entries, theme]);
+  }, [entries, theme, isClient]);
 
   // Define colors based on theme
   const colors = {
@@ -277,7 +328,7 @@ export default function ViewMode({
   }
   
   // No data state
-  if (!entries || entries.length === 0) {
+  if (!entries || entries.length === 0 || formattedEntries.length === 0) {
     return (
       <div className="flex h-screen items-center justify-center p-3 sm:p-4 md:p-6">
         <div className="card w-full max-w-md bg-base-100 shadow-xl">
@@ -285,7 +336,7 @@ export default function ViewMode({
             <div className="flex flex-col items-center justify-center space-y-4">
               <div className="text-warning text-5xl">⚠️</div>
               <h2 className="text-xl font-bold">No data available</h2>
-              <p className="text-center">There are no weight entries to display.</p>
+              <p className="text-center">There are no valid weight entries to display.</p>
               <button className="btn btn-primary" onClick={onExit}>Go back to app</button>
             </div>
           </div>
@@ -342,7 +393,7 @@ export default function ViewMode({
               <h2 className={`card-title text-base sm:text-lg ${colors.text}`}>Weight Chart</h2>
             </div>
             
-            {isClient && chartData && (
+            {isClient && chartData && isChartReady ? (
               <div className="-mx-3 sm:-mx-2 md:-mx-1">
                 <Chart
                   options={chartData.options}
@@ -350,6 +401,10 @@ export default function ViewMode({
                   type="area"
                   height={350}
                 />
+              </div>
+            ) : (
+              <div className="flex justify-center items-center h-[350px]">
+                <Loader2 className="animate-spin h-8 w-8 text-primary" />
               </div>
             )}
           </div>
@@ -411,10 +466,14 @@ export default function ViewMode({
               {formattedEntries.length > 0 ? (
                 <>
                   <p className={`text-2xl font-bold ${colors.text}`}>
-                    {Stats.calculateAverage(formattedEntries, 7).toFixed(1)} kg
+                    {formattedEntries.length >= 7 
+                      ? Stats.calculateAverage(formattedEntries, 7).toFixed(1) 
+                      : formattedEntries.length > 0 
+                        ? Stats.calculateAverage(formattedEntries, formattedEntries.length).toFixed(1) 
+                        : "-"} kg
                   </p>
                   <p className={`text-xs ${colors.textMuted}`}>
-                    Last 7 days
+                    {formattedEntries.length >= 7 ? "Last 7 days" : `Last ${formattedEntries.length} days`}
                   </p>
                 </>
               ) : (

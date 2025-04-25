@@ -880,15 +880,19 @@ export default function WeightTracker() {
       const permalinkId = `${username}_permalink`;
       console.log("Creating permalink data for:", permalinkId);
       
-      // Create sample weight entries - 10 days with a weight loss trend
+      // Create sample weight entries with extremely careful validation
       const entries = [];
       const today = new Date();
       const startWeight = 80.0;
       const goalWeight = 75.0;
       
+      // Ensure we create valid date strings and weight values
       for (let i = 0; i < 10; i++) {
         const entryDate = new Date();
         entryDate.setDate(today.getDate() - i);
+        
+        // Format date to YYYY-MM-DD string format
+        const dateStr = entryDate.toISOString().split('T')[0];
         
         // Calculate a gradual weight loss trend with slight variations
         const progress = i / 10; // 0 to 1 progress over the 10 days
@@ -896,9 +900,21 @@ export default function WeightTracker() {
         const variation = Math.random() * 0.4 - 0.2; // -0.2 to +0.2 variation
         const weight = (targetWeight + variation).toFixed(1);
         
+        // Validate the entry before adding
+        if (dateStr && !isNaN(parseFloat(weight))) {
+          entries.push({
+            date: dateStr,
+            weight: weight
+          });
+        }
+      }
+      
+      // Ensure we have entries
+      if (entries.length === 0) {
+        // Fallback entry with guaranteed valid data
         entries.push({
-          date: entryDate.toISOString().split('T')[0],
-          weight: weight
+          date: today.toISOString().split('T')[0],
+          weight: "80.0"
         });
       }
       
@@ -925,10 +941,11 @@ export default function WeightTracker() {
       return permalinkData;
     } catch (error) {
       console.error("Error in createPermalinkData:", error);
-      // Return a simple fallback permalink
+      // Return a simple fallback permalink with guaranteed valid data
+      const today = new Date();
       return {
         entries: [{
-          date: new Date().toISOString().split('T')[0],
+          date: today.toISOString().split('T')[0],
           weight: "78.5"
         }],
         startWeight: "80.0",

@@ -55,6 +55,37 @@ function calculatePeriodAverage(formattedEntries, days) {
 }
 
 /**
+ * Calculate average weight for a given number of days
+ * Used primarily by the ViewMode component
+ * @param {Array} formattedEntries - Array of formatted entries
+ * @param {number} days - Number of days to calculate average for
+ * @returns {number} - Average weight (0 if no entries or error)
+ */
+function calculateAverage(formattedEntries, days) {
+  try {
+    // Handle invalid inputs
+    if (!formattedEntries || !Array.isArray(formattedEntries) || formattedEntries.length === 0) {
+      return 0;
+    }
+    
+    // Limit to the specified number of days or available entries
+    const entriesToUse = formattedEntries.slice(0, days);
+    
+    // Calculate sum of weights
+    const sum = entriesToUse.reduce((total, entry) => {
+      const weight = parseFloat(entry.weight);
+      return isNaN(weight) ? total : total + weight;
+    }, 0);
+    
+    // Return average
+    return sum / entriesToUse.length;
+  } catch (error) {
+    console.error("Error calculating average:", error);
+    return 0;
+  }
+}
+
+/**
  * Calculate BMI from weight and height
  * @param {number} weightKg - Weight in kilograms
  * @param {number} heightCm - Height in centimeters
@@ -204,6 +235,7 @@ function getWeightDistribution(entries) {
 // Export functions
 export {
   calculatePeriodAverage,
+  calculateAverage,
   calculateBMI,
   getBMICategory,
   calculateForecast,
