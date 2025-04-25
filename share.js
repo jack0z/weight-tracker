@@ -50,7 +50,7 @@ function createSharePackage(entries, startWeight, goalWeight, height, theme, use
  * @param {string} theme - Current theme
  * @returns {Object} - Result object with success status, message, and shareLink if successful
  */
-function generateShareLink(username, entries, startWeight, goalWeight, height, theme) {
+async function generateShareLink(username, entries, startWeight, goalWeight, height, theme) {
   if (!username) {
     return { success: false, message: "You must be logged in to share your tracker" };
   }
@@ -66,15 +66,36 @@ function generateShareLink(username, entries, startWeight, goalWeight, height, t
     // Create the data package to share
     const dataToShare = createSharePackage(entries, startWeight, goalWeight, height, theme, username);
     
-    // Save to both localStorage (for backward compatibility) and IndexedDB (for cross-device support)
-    localStorage.setItem(`shared_${shareId}`, JSON.stringify(dataToShare));
+    // Save to server via API
+    const response = await fetch('/api/share', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        id: shareId,
+        ...dataToShare
+      })
+    });
     
-    // Also save to shared DB collection
-    saveToSharedCollection(shareId, dataToShare);
+    const result = await response.json();
+    
+    if (!result.success) {
+      console.error("Error saving shared data:", result.message);
+      return { success: false, message: `Failed to generate share link: ${result.message}` };
+    }
     
     // Generate the full URL
     const baseUrl = typeof window !== 'undefined' ? window.location.origin + window.location.pathname : '';
     const shareLink = `${baseUrl}?view=${shareId}`;
+    
+    // Also save to localStorage as a backup
+    try {
+      localStorage.setItem(`shared_${shareId}`, JSON.stringify(dataToShare));
+    } catch (e) {
+      console.warn("Could not save to localStorage", e);
+      // Continue anyway as we've saved to server
+    }
     
     return { 
       success: true, 
@@ -89,58 +110,6 @@ function generateShareLink(username, entries, startWeight, goalWeight, height, t
 }
 
 /**
- * Save shared data to IndexedDB for cross-device access
- * @param {string} shareId - The share ID
- * @param {Object} data - The data to store
- * @returns {Promise} - Promise that resolves when data is saved
- */
-function saveToSharedCollection(shareId, data) {
-  // If IndexedDB is not supported, just silently return
-  if (!isIndexedDBSupported()) {
-    return Promise.resolve();
-  }
-
-  return new Promise((resolve, reject) => {
-    // Create or open the IndexedDB database
-    const request = indexedDB.open('weightTrackerShares', 1);
-    
-    request.onerror = (event) => {
-      console.error("IndexedDB error:", event.target.error);
-      reject(event.target.error);
-    };
-    
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      
-      // Create an object store if it doesn't exist
-      if (!db.objectStoreNames.contains('shares')) {
-        const store = db.createObjectStore('shares', { keyPath: 'id' });
-        store.createIndex('expiresAt', 'expiresAt', { unique: false });
-      }
-    };
-    
-    request.onsuccess = (event) => {
-      const db = event.target.result;
-      const transaction = db.transaction(['shares'], 'readwrite');
-      const store = transaction.objectStore('shares');
-      
-      // Add the data to the store
-      const addRequest = store.put({ 
-        id: shareId,
-        data: data,
-        expiresAt: new Date(data.expiresAt)
-      });
-      
-      addRequest.onsuccess = () => resolve();
-      addRequest.onerror = (event) => reject(event.target.error);
-    };
-  }).catch(error => {
-    console.error("Error saving to IndexedDB:", error);
-    // Fall back to localStorage only if IndexedDB fails
-  });
-}
-
-/**
  * Check if a shared view is valid
  * @param {string} shareId - The share ID from the URL
  * @returns {Object} - Result with success status, message, and data if successful
@@ -151,10 +120,33 @@ async function loadSharedView(shareId) {
   }
   
   try {
-    // First try to get from localStorage for backward compatibility
+    // First try to get from server
+    try {
+      const response = await fetch(`/api/share?id=${shareId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log("Loaded shared data from server");
+        return { success: true, message: "Shared data loaded successfully", data: result.data };
+      }
+      
+      console.log("Server data not found or error:", result.message);
+      // If server request fails, fall back to localStorage
+    } catch (error) {
+      console.error("Error loading from server:", error);
+      // Fall back to localStorage
+    }
+    
+    // Try to load from localStorage as fallback
+    console.log("Trying localStorage as fallback");
     const sharedDataStr = localStorage.getItem(`shared_${shareId}`);
     
-    // If found in localStorage, use that
     if (sharedDataStr) {
       const sharedData = JSON.parse(sharedDataStr);
       
@@ -162,33 +154,13 @@ async function loadSharedView(shareId) {
       if (sharedData.expiresAt && new Date(sharedData.expiresAt) < new Date()) {
         // Remove expired data
         localStorage.removeItem(`shared_${shareId}`);
-        deleteFromSharedCollection(shareId);
         return { success: false, message: "This shared link has expired" };
       }
       
       return { success: true, message: "Shared data loaded successfully", data: sharedData };
     }
     
-    // Otherwise try to get from IndexedDB
-    try {
-      const sharedData = await getFromSharedCollection(shareId);
-      
-      if (!sharedData) {
-        return { success: false, message: "Shared data not found or expired" };
-      }
-      
-      // Check if the data has expired
-      if (sharedData.data.expiresAt && new Date(sharedData.data.expiresAt) < new Date()) {
-        // Remove expired data
-        deleteFromSharedCollection(shareId);
-        return { success: false, message: "This shared link has expired" };
-      }
-      
-      return { success: true, message: "Shared data loaded successfully", data: sharedData.data };
-    } catch (error) {
-      console.error("Error loading from IndexedDB:", error);
-      return { success: false, message: "Shared data not found or expired" };
-    }
+    return { success: false, message: "Shared data not found or expired" };
   } catch (error) {
     console.error("Error loading shared view:", error);
     return { success: false, message: `Error loading shared data: ${error.message}` };
@@ -196,94 +168,22 @@ async function loadSharedView(shareId) {
 }
 
 /**
- * Get shared data from IndexedDB
- * @param {string} shareId - The share ID to retrieve
- * @returns {Promise} - Promise that resolves with the data
- */
-function getFromSharedCollection(shareId) {
-  // If IndexedDB is not supported, return null
-  if (!isIndexedDBSupported()) {
-    return Promise.resolve(null);
-  }
-
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('weightTrackerShares', 1);
-    
-    request.onerror = (event) => reject(event.target.error);
-    
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('shares')) {
-        db.createObjectStore('shares', { keyPath: 'id' });
-      }
-    };
-    
-    request.onsuccess = (event) => {
-      const db = event.target.result;
-      
-      try {
-        const transaction = db.transaction(['shares'], 'readonly');
-        const store = transaction.objectStore('shares');
-        const getRequest = store.get(shareId);
-        
-        getRequest.onsuccess = () => resolve(getRequest.result);
-        getRequest.onerror = (event) => reject(event.target.error);
-      } catch (error) {
-        reject(error);
-      }
-    };
-  });
-}
-
-/**
  * Delete a share link
  * @param {string} shareId - The share ID to delete
  * @returns {boolean} - Success status
  */
-function deleteShareLink(shareId) {
+async function deleteShareLink(shareId) {
   try {
+    // Remove from localStorage
     localStorage.removeItem(`shared_${shareId}`);
-    deleteFromSharedCollection(shareId);
+    
+    // We could add server-side deletion here if needed
+    
     return true;
   } catch (error) {
     console.error("Error deleting share link:", error);
     return false;
   }
-}
-
-/**
- * Delete shared data from IndexedDB
- * @param {string} shareId - The share ID to delete
- * @returns {Promise} - Promise that resolves when data is deleted
- */
-function deleteFromSharedCollection(shareId) {
-  // If IndexedDB is not supported, just silently return
-  if (!isIndexedDBSupported()) {
-    return Promise.resolve();
-  }
-
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('weightTrackerShares', 1);
-    
-    request.onerror = (event) => reject(event.target.error);
-    
-    request.onsuccess = (event) => {
-      const db = event.target.result;
-      
-      try {
-        const transaction = db.transaction(['shares'], 'readwrite');
-        const store = transaction.objectStore('shares');
-        const deleteRequest = store.delete(shareId);
-        
-        deleteRequest.onsuccess = () => resolve();
-        deleteRequest.onerror = (event) => reject(event.target.error);
-      } catch (error) {
-        reject(error);
-      }
-    };
-  }).catch(error => {
-    console.error("Error deleting from IndexedDB:", error);
-  });
 }
 
 // Clean up expired shares

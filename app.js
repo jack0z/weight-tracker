@@ -51,6 +51,10 @@ export default function WeightTracker() {
   const [shareLink, setShareLink] = useState("");
   const [viewMode, setViewMode] = useState(false);
   const [viewData, setViewData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [viewModeError, setViewModeError] = useState("");
+  const [isSharingInProgress, setIsSharingInProgress] = useState(false);
+  const [shareMessage, setShareMessage] = useState({ type: '', text: '' });
   
   // Toggle theme function
   const toggleTheme = () => {
@@ -456,92 +460,62 @@ export default function WeightTracker() {
 
   // Add this new useEffect to check for view mode in URL
   useEffect(() => {
-    if (isClient && typeof window !== 'undefined') {
-      // Check for view mode in URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const viewParam = urlParams.get('view');
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewParam = urlParams.get('view');
+    
+    if (viewParam) {
+      setIsLoading(true);
       
-      if (viewParam) {
-        console.log("View mode detected:", viewParam);
-        
-        // Load shared data
-        (async () => {
+      // Use the async function with proper error handling
+      (async () => {
+        try {
           const result = await Share.loadSharedView(viewParam);
           
           if (result.success) {
+            console.log("Shared view loaded successfully");
             setViewMode(true);
             setViewData(result.data);
-            
-            // Set theme from shared data
-            if (result.data.theme) {
-              setTheme(result.data.theme);
-              
-              // Directly apply theme to document
-              if (result.data.theme === "dark") {
-                document.documentElement.classList.add("dark");
-              } else {
-                document.documentElement.classList.remove("dark");
-              }
-            }
-            
-            setTimeout(() => {
-              toast.success("Viewing shared weight data", {
-                style: {
-                  background: theme === 'dark' ? "#313338" : "#ffffff",
-                  color: theme === 'dark' ? "#e3e5e8" : "#374151",
-                  border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-                }
-              });
-            }, 500);
           } else {
-            setTimeout(() => {
-              toast.error(result.message, {
-                style: {
-                  background: theme === 'dark' ? "#313338" : "#ffffff",
-                  color: theme === 'dark' ? "#e3e5e8" : "#374151",
-                  border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-                }
-              });
-            }, 500);
+            console.error("Failed to load shared view:", result.message);
+            setViewModeError(result.message);
           }
-        })();
-      }
+        } catch (error) {
+          console.error("Error loading shared view:", error);
+          setViewModeError("An unexpected error occurred while loading the shared data");
+        } finally {
+          setIsLoading(false);
+        }
+      })();
+    } else {
+      setIsLoading(false);
     }
-  }, [isClient]); // Only run when isClient changes, not on theme changes
+  }, []);
 
   // Generate and share a link
-  const handleShareLink = () => {
-    if (!isLoggedIn) {
-      toast.error("You must be logged in to share your tracker", {
-        style: {
-          background: theme === 'dark' ? "#313338" : "#ffffff",
-          color: theme === 'dark' ? "#e3e5e8" : "#374151",
-          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-        }
-      });
-      return;
-    }
+  const handleShare = async () => {
+    setIsSharingInProgress(true);
     
-    const result = Share.generateShareLink(
-      currentUser,
-      entries,
-      startWeight,
-      goalWeight,
-      height,
-      theme
-    );
-    
-    if (result.success) {
-      setShareLink(result.shareLink);
-      setShowShareModal(true);
-    } else {
-      toast.error(result.message, {
-        style: {
-          background: theme === 'dark' ? "#313338" : "#ffffff",
-          color: theme === 'dark' ? "#e3e5e8" : "#374151",
-          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-        }
-      });
+    try {
+      const result = await Share.generateShareLink(
+        currentUser, 
+        entries, 
+        startWeight, 
+        goalWeight, 
+        height, 
+        theme
+      );
+      
+      if (result.success) {
+        setShareLink(result.shareLink);
+        setShowShareModal(true);
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error) {
+      console.error("Share error:", error);
+      toast.error('Failed to generate share link. Please try again.');
+    } finally {
+      setIsSharingInProgress(false);
     }
   };
   
@@ -558,17 +532,19 @@ export default function WeightTracker() {
   }
 
   // If in view mode, render the ViewMode component
-  if (viewMode && viewData) {
+  if (viewMode) {
     return (
       <ViewMode 
-        entries={viewData.entries}
-        startWeight={viewData.startWeight}
-        goalWeight={viewData.goalWeight}
-        height={viewData.height}
+        entries={viewData?.entries || []}
+        startWeight={viewData?.startWeight}
+        goalWeight={viewData?.goalWeight}
+        height={viewData?.height}
         theme={theme}
-        sharedBy={viewData.sharedBy}
+        sharedBy={viewData?.sharedBy}
         onThemeToggle={toggleTheme}
         onExit={handleExitViewMode}
+        isLoading={isLoading}
+        error={viewModeError}
       />
     );
   }
@@ -624,7 +600,7 @@ export default function WeightTracker() {
             <span className="text-sm mr-2">{currentUser}</span>
             {/* Add Share Button */}
             <button
-              onClick={handleShareLink}
+              onClick={handleShare}
               className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
               title="Share your progress"
             >
