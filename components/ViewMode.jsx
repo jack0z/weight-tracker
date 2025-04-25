@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Sun, Moon, TrendingDown, TrendingUp, Minus, AlertTriangle, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-import { Toaster, toast } from 'sonner';
+import { Toaster } from 'sonner';
 import dynamic from "next/dynamic";
 import * as Stats from '../stats.js';
 
@@ -41,84 +41,14 @@ export default function ViewMode({
   const [chartData, setChartData] = useState(null);
   const [isClient, setIsClient] = useState(false);
   const [localError, setLocalError] = useState("");
-  const [isChartReady, setIsChartReady] = useState(false);
+  const [showChart, setShowChart] = useState(false);
+  const [showBmi, setShowBmi] = useState(false);
+  const [bmiData, setBmiData] = useState({ value: null, category: null, color: null });
 
   // Set isClient once component mounts
   useEffect(() => {
     setIsClient(true);
-    
-    // Check if we have the necessary data
-    if (!isLoading && (!entries || entries.length === 0)) {
-      // If we're on Netlify, show a specific message
-      if (typeof window !== 'undefined' && window.location.hostname.includes('netlify.app')) {
-        // Try to get data from localStorage directly
-        const viewParam = new URLSearchParams(window.location.search).get('view');
-        if (viewParam) {
-          try {
-            console.log("Attempting to load data directly for view param:", viewParam);
-            
-            // Create sample data for our specific permalinks
-            if (viewParam === 'luka_m9wkk9vl' || viewParam === 'luka_m9wo6igy') {
-              console.log("Creating demo data for permalink");
-              
-              // Create demo entries - last 30 days with a weight loss trend
-              const demoEntries = [];
-              const today = new Date();
-              
-              for (let i = 0; i < 30; i++) {
-                const entryDate = new Date();
-                entryDate.setDate(today.getDate() - i);
-                
-                // Start at 80kg and go down by 0.1kg each day, with some random variation
-                const baseWeight = 80 - (i * 0.1);
-                const variation = Math.random() * 0.4 - 0.2; // -0.2 to +0.2 variation
-                const weight = (baseWeight + variation).toFixed(1);
-                
-                demoEntries.push({
-                  date: entryDate.toISOString().split('T')[0],
-                  weight: weight
-                });
-              }
-              
-              // Create share package
-              const demoShareData = {
-                entries: demoEntries,
-                startWeight: "80.0",
-                goalWeight: "75.0",
-                height: "175",
-                theme: "light",
-                sharedBy: "Demo User",
-                sharedAt: new Date().toISOString(),
-                expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // Expires in 1 year
-              };
-              
-              // Save to localStorage
-              localStorage.setItem(`shared_${viewParam}`, JSON.stringify(demoShareData));
-              console.log("Demo data created and saved for:", viewParam);
-              
-              // Reload the page to use the saved data
-              window.location.reload();
-              return;
-            }
-            
-            const localData = localStorage.getItem(`shared_${viewParam}`);
-            if (localData) {
-              const parsedData = JSON.parse(localData);
-              console.log("Found local data directly:", parsedData);
-              
-              // Force reload to pick up the local data
-              window.location.reload();
-              return;
-            }
-          } catch (e) {
-            console.error("Error checking localStorage directly:", e);
-          }
-        }
-        
-        setLocalError("Shared data could not be loaded. This may be because you're viewing a static deployment that doesn't have access to the shared data.");
-      }
-    }
-  }, [isLoading, entries]);
+  }, []);
 
   // Apply theme directly to document
   useEffect(() => {
@@ -131,7 +61,7 @@ export default function ViewMode({
     }
   }, [theme, isClient]);
 
-  // Format entries and prepare chart data
+  // Format entries
   useEffect(() => {
     if (!isClient) return;
     
@@ -172,112 +102,145 @@ export default function ViewMode({
           .sort((a, b) => b.dateObj - a.dateObj); // Sort by date, newest first
         
         setFormattedEntries(formatted);
-        
-        // Only proceed with chart if we have valid formatted entries
-        if (formatted.length > 0) {
-          // Prepare chart data
-          const chartColors = theme === 'dark' 
-            ? ['#8DA101', '#7289da', '#43b581'] 
-            : ['#8DA101', '#4e5d94', '#2e7d32'];
-          
-          // Safely create categories and data arrays for the chart
-          const categories = [...formatted]
-            .reverse()
-            .map(e => e.date);
-          
-          const weightData = [...formatted]
-            .reverse()
-            .map(e => parseFloat(e.weight));
-            
-          const chartConfig = {
-            options: {
-              chart: {
-                type: 'area',
-                height: 350,
-                toolbar: {
-                  show: false,
-                },
-                background: 'transparent',
-                fontFamily: 'Inter, sans-serif',
-              },
-              colors: chartColors,
-              dataLabels: {
-                enabled: false
-              },
-              stroke: {
-                curve: 'smooth',
-                width: 3,
-              },
-              fill: {
-                type: 'gradient',
-                gradient: {
-                  shadeIntensity: 1,
-                  opacityFrom: 0.7,
-                  opacityTo: 0.2,
-                  stops: [0, 90, 100]
-                }
-              },
-              grid: {
-                borderColor: theme === 'dark' ? '#1e1f22' : '#e5e7eb',
-                strokeDashArray: 3,
-                row: {
-                  colors: ['transparent'],
-                  opacity: 0.5
-                },
-              },
-              xaxis: {
-                type: 'datetime',
-                categories: categories,
-                labels: {
-                  style: {
-                    colors: theme === 'dark' ? '#b5bac1' : '#6b7280',
-                  },
-                  format: 'MMM dd',
-                },
-                tooltip: {
-                  enabled: false
-                }
-              },
-              yaxis: {
-                labels: {
-                  formatter: function(val) {
-                    return val.toFixed(1) + ' kg';
-                  },
-                  style: {
-                    colors: theme === 'dark' ? '#b5bac1' : '#6b7280',
-                  },
-                },
-              },
-              tooltip: {
-                x: {
-                  format: 'MMM dd, yyyy'
-                },
-                y: {
-                  formatter: function(val) {
-                    return val.toFixed(1) + ' kg';
-                  }
-                }
-              }
-            },
-            series: [{
-              name: 'Weight',
-              data: weightData
-            }]
-          };
-          
-          setChartData(chartConfig);
-          
-          // Add a small delay to ensure chart rendering occurs after state updates are processed
-          setTimeout(() => {
-            setIsChartReady(true);
-          }, 100);
-        }
       }
     } catch (error) {
-      console.error("Error processing entries for chart:", error);
+      console.error("Error processing entries:", error);
+      setLocalError("Error preparing data: " + error.message);
+    }
+  }, [entries, isClient]);
+
+  // Prepare chart data separately after entries are formatted
+  useEffect(() => {
+    if (!isClient || formattedEntries.length === 0) return;
+    
+    try {
+      // Prepare chart data
+      const chartColors = theme === 'dark' 
+        ? ['#8DA101', '#7289da', '#43b581'] 
+        : ['#8DA101', '#4e5d94', '#2e7d32'];
+      
+      // Safely create categories and data arrays for the chart
+      const categories = [...formattedEntries]
+        .reverse()
+        .map(e => e.date);
+      
+      const weightData = [...formattedEntries]
+        .reverse()
+        .map(e => parseFloat(e.weight));
+        
+      const chartConfig = {
+        options: {
+          chart: {
+            type: 'area',
+            height: 350,
+            toolbar: {
+              show: false,
+            },
+            background: 'transparent',
+            fontFamily: 'Inter, sans-serif',
+          },
+          colors: chartColors,
+          dataLabels: {
+            enabled: false
+          },
+          stroke: {
+            curve: 'smooth',
+            width: 3,
+          },
+          fill: {
+            type: 'gradient',
+            gradient: {
+              shadeIntensity: 1,
+              opacityFrom: 0.7,
+              opacityTo: 0.2,
+              stops: [0, 90, 100]
+            }
+          },
+          grid: {
+            borderColor: theme === 'dark' ? '#1e1f22' : '#e5e7eb',
+            strokeDashArray: 3,
+            row: {
+              colors: ['transparent'],
+              opacity: 0.5
+            },
+          },
+          xaxis: {
+            type: 'datetime',
+            categories: categories,
+            labels: {
+              style: {
+                colors: theme === 'dark' ? '#b5bac1' : '#6b7280',
+              },
+              format: 'MMM dd',
+            },
+            tooltip: {
+              enabled: false
+            }
+          },
+          yaxis: {
+            labels: {
+              formatter: function(val) {
+                return val.toFixed(1) + ' kg';
+              },
+              style: {
+                colors: theme === 'dark' ? '#b5bac1' : '#6b7280',
+              },
+            },
+          },
+          tooltip: {
+            x: {
+              format: 'MMM dd, yyyy'
+            },
+            y: {
+              formatter: function(val) {
+                return val.toFixed(1) + ' kg';
+              }
+            }
+          }
+        },
+        series: [{
+          name: 'Weight',
+          data: weightData
+        }]
+      };
+      
+      setChartData(chartConfig);
+      
+      // Add a small delay to ensure chart rendering occurs after state updates are processed
+      setTimeout(() => {
+        setShowChart(true);
+      }, 300);
+    } catch (error) {
+      console.error("Error preparing chart data:", error);
       setLocalError("Error preparing chart data: " + error.message);
     }
-  }, [entries, theme, isClient]);
+  }, [formattedEntries, theme, isClient]);
+
+  // Calculate BMI separately after entries are formatted
+  useEffect(() => {
+    if (!isClient || formattedEntries.length === 0 || !height) return;
+    
+    try {
+      const weight = formattedEntries[0].weight;
+      const bmiValue = Stats.calculateBMI(weight, height);
+      
+      if (bmiValue) {
+        const bmiCategory = Stats.getBMICategory(bmiValue, theme);
+        setBmiData({
+          value: bmiValue,
+          category: bmiCategory.category,
+          color: bmiCategory.color
+        });
+        
+        setTimeout(() => {
+          setShowBmi(true);
+        }, 200);
+      }
+    } catch (error) {
+      console.error("Error calculating BMI:", error);
+      // Don't set an error, just don't show BMI
+    }
+  }, [formattedEntries, height, theme, isClient]);
 
   // Define colors based on theme
   const colors = {
@@ -393,8 +356,8 @@ export default function ViewMode({
               <h2 className={`card-title text-base sm:text-lg ${colors.text}`}>Weight Chart</h2>
             </div>
             
-            {isClient && chartData && isChartReady ? (
-              <div className="-mx-3 sm:-mx-2 md:-mx-1">
+            {isClient && chartData && showChart ? (
+              <div className="-mx-3 sm:-mx-2 md:-mx-1" id="chart-container">
                 {(() => {
                   try {
                     return (
@@ -476,7 +439,7 @@ export default function ViewMode({
           {/* 7-Day Average */}
           <Card className={`border ${colors.cardBg} ${colors.border}`}>
             <CardHeader className="pb-2">
-              <CardTitle className={`text-sm ${colors.text}`}>7-Day Average</CardTitle>
+              <CardTitle className={`text-sm ${colors.text}`}>Average Weight</CardTitle>
             </CardHeader>
             <CardContent>
               {formattedEntries.length > 0 ? (
@@ -504,13 +467,13 @@ export default function ViewMode({
               <CardTitle className={`text-sm ${colors.text}`}>BMI</CardTitle>
             </CardHeader>
             <CardContent>
-              {formattedEntries.length > 0 && height ? (
+              {showBmi && bmiData.value ? (
                 <>
                   <p className={`text-2xl font-bold ${colors.text}`}>
-                    {Stats.calculateBMI(formattedEntries[0].weight, height)}
+                    {bmiData.value}
                   </p>
-                  <p className={`text-xs ${Stats.getBMICategory(Stats.calculateBMI(formattedEntries[0].weight, height), theme).color}`}>
-                    {Stats.getBMICategory(Stats.calculateBMI(formattedEntries[0].weight, height), theme).category}
+                  <p className={`text-xs ${bmiData.color}`}>
+                    {bmiData.category}
                   </p>
                 </>
               ) : (
