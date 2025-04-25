@@ -589,7 +589,9 @@ export default function WeightTracker() {
                       file:mr-4 file:py-2 file:px-4 
                       file:rounded-md file:border-0 
                       file:text-sm file:font-semibold 
-                      file:bg-[#8DA101] hover:file:bg-[#798901] file:text-white`}
+                      ${theme === 'dark' 
+                        ? 'file:bg-[#404249] hover:file:bg-[#2b2d31]' 
+                        : 'file:bg-[#8DA101] hover:file:bg-[#798901]'} file:text-white`}
                   />
                 </div>
               </div>

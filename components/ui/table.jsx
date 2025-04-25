@@ -11,19 +11,13 @@ const Table = React.forwardRef(({ className, ...props }, ref) => (
 ))
 Table.displayName = "Table"
 
-const TableHeader = React.forwardRef(({ className, ...props }, ref) => {
-  const isDarkTheme = typeof document !== 'undefined' ? 
-    document.documentElement.classList.contains('dark') : 
-    true;
-    
-  return (
-    <thead 
-      ref={ref} 
-      className={`[&_tr]:border-b ${isDarkTheme ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'} ${className}`} 
-      {...props} 
-    />
-  );
-})
+const TableHeader = React.forwardRef(({ className, ...props }, ref) => (
+  <thead 
+    ref={ref} 
+    className={`[&_tr]:border-b border-[#DDD8BE] dark:border-[#1e1f22] ${className}`} 
+    {...props} 
+  />
+))
 TableHeader.displayName = "TableHeader"
 
 const TableBody = React.forwardRef(({ className, ...props }, ref) => (
@@ -35,50 +29,31 @@ const TableBody = React.forwardRef(({ className, ...props }, ref) => (
 ))
 TableBody.displayName = "TableBody"
 
-const TableFooter = React.forwardRef(({ className, ...props }, ref) => {
-  const isDarkTheme = typeof document !== 'undefined' ? 
-    document.documentElement.classList.contains('dark') : 
-    true;
-    
-  return (
-    <tfoot
-      ref={ref}
-      className={`border-t ${isDarkTheme ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'} font-medium ${className}`}
-      {...props}
-    />
-  );
-})
+const TableFooter = React.forwardRef(({ className, ...props }, ref) => (
+  <tfoot
+    ref={ref}
+    className={`border-t border-[#DDD8BE] dark:border-[#1e1f22] font-medium ${className}`}
+    {...props}
+  />
+))
 TableFooter.displayName = "TableFooter"
 
-const TableRow = React.forwardRef(({ className, ...props }, ref) => {
-  // Access the theme from the document element
-  const isDarkTheme = typeof document !== 'undefined' ? 
-    document.documentElement.classList.contains('dark') : 
-    true; // Default to dark theme if document is not available
-  
-  return (
-    <tr
-      ref={ref}
-      className={`border-b ${isDarkTheme ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'} transition-colors ${isDarkTheme ? 'hover:bg-[#2b2d31]' : 'hover:bg-[#B9C0AB]'} ${className}`}
-      {...props}
-    />
-  );
-})
+const TableRow = React.forwardRef(({ className, ...props }, ref) => (
+  <tr
+    ref={ref}
+    className={`border-b border-[#DDD8BE] dark:border-[#1e1f22] transition-colors hover:bg-[#B9C0AB] dark:hover:bg-[#2b2d31] ${className}`}
+    {...props}
+  />
+))
 TableRow.displayName = "TableRow"
 
-const TableHead = React.forwardRef(({ className, ...props }, ref) => {
-  const isDarkTheme = typeof document !== 'undefined' ? 
-    document.documentElement.classList.contains('dark') : 
-    true;
-    
-  return (
-    <th
-      ref={ref}
-      className={`h-12 px-4 text-left align-middle font-medium ${isDarkTheme ? 'text-[#b5bac1]' : 'text-[#829181]'} [&:has([role=checkbox])]:pr-0 ${className}`}
-      {...props}
-    />
-  );
-})
+const TableHead = React.forwardRef(({ className, ...props }, ref) => (
+  <th
+    ref={ref}
+    className={`h-12 px-4 text-left align-middle font-medium text-[#829181] dark:text-[#b5bac1] [&:has([role=checkbox])]:pr-0 ${className}`}
+    {...props}
+  />
+))
 TableHead.displayName = "TableHead"
 
 const TableCell = React.forwardRef(({ className, ...props }, ref) => (
@@ -90,19 +65,13 @@ const TableCell = React.forwardRef(({ className, ...props }, ref) => (
 ))
 TableCell.displayName = "TableCell"
 
-const TableCaption = React.forwardRef(({ className, ...props }, ref) => {
-  const isDarkTheme = typeof document !== 'undefined' ? 
-    document.documentElement.classList.contains('dark') : 
-    true;
-    
-  return (
-    <caption
-      ref={ref}
-      className={`mt-4 text-sm ${isDarkTheme ? 'text-[#b5bac1]' : 'text-[#829181]'} ${className}`}
-      {...props}
-    />
-  );
-})
+const TableCaption = React.forwardRef(({ className, ...props }, ref) => (
+  <caption
+    ref={ref}
+    className={`mt-4 text-sm text-[#829181] dark:text-[#b5bac1] ${className}`}
+    {...props}
+  />
+))
 TableCaption.displayName = "TableCaption"
 
 export {
