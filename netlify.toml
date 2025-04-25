@@ -1,0 +1,24 @@
+[build]
+  command = "npm run build"
+  publish = "out"
+
+# Handle 404s with custom page
+[[redirects]]
+  from = "/*"
+  to = "/share-fallback"
+  status = 200
+  force = false
+  conditions = {Path = {pattern = "^/share/(?!demo_share|demo_permalink).+$"}}
+
+# Handle direct access to share pages
+[[redirects]]
+  from = "/share/*"
+  to = "/share-fallback?id=:splat"
+  status = 200
+  force = false
+
+# For everything else, serve the index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200 

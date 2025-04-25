@@ -1,81 +1,47 @@
-"use client";
+import { redirect } from 'next/navigation';
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import ViewMode from '../../../components/ViewMode';
+// This function is required for Next.js static exports
+// It pre-renders these specific routes at build time
+export async function generateStaticParams() {
+  return [
+    { id: 'demo_share' },
+    { id: 'demo_permalink' }
+  ];
+}
 
-export default function SharePage() {
-  const params = useParams();
-  const [isLoading, setIsLoading] = useState(true);
-  const [viewData, setViewData] = useState(null);
-  const [error, setError] = useState("");
-  const [theme, setTheme] = useState("light");
-
-  useEffect(() => {
-    // Load the report data based on the ID
-    const fetchShareData = async () => {
-      try {
-        setIsLoading(true);
-        // We'll load the data from localStorage in this client-side implementation
-        // In production, this would fetch from an API or a generated static file
-        if (typeof window !== 'undefined') {
-          const shareId = params.id;
-          const storedData = localStorage.getItem(`shared_${shareId}`);
-          
-          if (storedData) {
-            const parsedData = JSON.parse(storedData);
-            setViewData(parsedData);
-            
-            // Apply theme from shared data
-            if (parsedData.theme) {
-              setTheme(parsedData.theme);
-            }
-          } else {
-            setError("Shared data not found or has expired");
-          }
-        }
-      } catch (error) {
-        console.error("Error loading shared data:", error);
-        setError("Error loading shared data: " + error.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchShareData();
-  }, [params.id]);
-
-  // Toggle theme function
-  const toggleTheme = () => {
-    const newTheme = theme === "dark" ? "light" : "dark";
-    setTheme(newTheme);
-    
-    // Update the theme in viewData
-    if (viewData) {
-      setViewData({
-        ...viewData,
-        theme: newTheme
-      });
-    }
-  };
-
-  // Exit function - return to home
-  const handleExit = () => {
-    window.location.href = '/';
-  };
-
+// This is a server component (no 'use client')
+export default function SharePage({ params }) {
+  // For static exports, client-side redirect will happen in a script
   return (
-    <ViewMode 
-      entries={viewData?.entries || []}
-      startWeight={viewData?.startWeight}
-      goalWeight={viewData?.goalWeight}
-      height={viewData?.height}
-      theme={theme}
-      sharedBy={viewData?.sharedBy}
-      onThemeToggle={toggleTheme}
-      onExit={handleExit}
-      isLoading={isLoading}
-      error={error}
-    />
+    <html>
+      <head>
+        <title>Redirecting to Shared Weight Tracker</title>
+        {/* Add meta refresh as a fallback */}
+        <meta httpEquiv="refresh" content={`0;url=/share-fallback#/share/${params.id}`} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Script to redirect to the fallback page
+              window.location.href = "/share-fallback#/share/${params.id}";
+            `,
+          }}
+        />
+      </head>
+      <body>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh',
+          fontFamily: 'system-ui, sans-serif'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <h1>Redirecting...</h1>
+            <p>Please wait while we redirect you to the shared weight tracker.</p>
+            <p>If you are not redirected automatically, <a href={`/share-fallback#/share/${params.id}`}>click here</a>.</p>
+          </div>
+        </div>
+      </body>
+    </html>
   );
 } 

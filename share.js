@@ -5,6 +5,7 @@
  * @returns {boolean} - Whether IndexedDB is supported
  */
 function isIndexedDBSupported() {
+  if (typeof window === 'undefined') return false;
   return window.indexedDB !== undefined && window.indexedDB !== null;
 }
 
@@ -81,9 +82,8 @@ async function generateShareLink(username, entries, startWeight, goalWeight, hei
     // Save the data to localStorage (in a real app this would be stored in a database)
     localStorage.setItem(`shared_${shareId}`, JSON.stringify(shareData));
     
-    // Generate a share link using the share ID
-    // In a production environment, this would generate a static HTML file
-    const shareLink = `${window.location.origin}/share/${shareId}`;
+    // For static exports, we use the share-fallback page with query parameters
+    const shareLink = `${window.location.origin}/share-fallback?id=${encodeURIComponent(shareId)}`;
     
     return {
       success: true,
@@ -302,6 +302,9 @@ function deleteFromSharedCollection(shareId) {
 
 // Clean up expired shares
 function cleanupExpiredShares() {
+  // Skip if not in browser environment
+  if (typeof window === 'undefined') return;
+  
   // Check localStorage for expired shares
   if (typeof localStorage !== 'undefined') {
     try {
@@ -340,8 +343,21 @@ function cleanupExpiredShares() {
     const db = event.target.result;
     
     try {
+      // Check if the 'shares' object store exists before attempting transaction
+      if (!db.objectStoreNames.contains('shares')) {
+        console.log('Shares object store not found, skipping cleanup');
+        return;
+      }
+      
       const transaction = db.transaction(['shares'], 'readwrite');
       const store = transaction.objectStore('shares');
+      
+      // Check if 'expiresAt' index exists
+      if (!store.indexNames.contains('expiresAt')) {
+        console.log('ExpiresAt index not found, skipping index-based cleanup');
+        return;
+      }
+      
       const index = store.index('expiresAt');
       
       const range = IDBKeyRange.upperBound(new Date());
@@ -361,11 +377,11 @@ function cleanupExpiredShares() {
   };
 }
 
-// Run cleanup on startup
-setTimeout(cleanupExpiredShares, 1000);
-
-// Schedule cleanup to run periodically (every hour)
+// Run cleanup on startup - only in browser
 if (typeof window !== 'undefined') {
+  setTimeout(cleanupExpiredShares, 1000);
+  
+  // Schedule cleanup to run periodically (every hour)
   setInterval(cleanupExpiredShares, 60 * 60 * 1000);
 }
 

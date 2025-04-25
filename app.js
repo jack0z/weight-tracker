@@ -49,6 +49,7 @@ export default function WeightTracker() {
   // Share functionality state
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareLink, setShareLink] = useState("");
+  const [isCurrentSharePermalink, setIsCurrentSharePermalink] = useState(false);
   const [viewMode, setViewMode] = useState(false);
   const [viewData, setViewData] = useState(null);
   const [showShareDropdown, setShowShareDropdown] = useState(false);
@@ -665,6 +666,7 @@ export default function WeightTracker() {
         onClose={() => setShowShareModal(false)}
         shareLink={shareLink}
         theme={theme}
+        isPermalink={isCurrentSharePermalink}
       />
       
       <div className="max-w-6xl mx-auto">
