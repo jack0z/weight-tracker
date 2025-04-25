@@ -69,17 +69,33 @@ function calculateBMI(weightKg, heightCm) {
 }
 
 /**
- * Get BMI category and corresponding color class
+ * Get BMI category and associated color
  * @param {number} bmi - BMI value
- * @returns {Object} - Object with category and color properties
+ * @param {string} theme - Current theme ('dark' or 'light')
+ * @returns {Object} - Category and color information
  */
-function getBMICategory(bmi) {
+function getBMICategory(bmi, theme = 'dark') {
   if (!bmi) return { category: "", color: "" };
   
-  if (bmi < 18.5) return { category: "Underweight", color: "text-yellow" };
-  if (bmi < 25) return { category: "Healthy", color: "text-green" };
-  if (bmi < 30) return { category: "Overweight", color: "text-yellow" };
-  return { category: "Obese", color: "text-red" };
+  if (bmi < 18.5) return { 
+    category: "Underweight", 
+    color: theme === 'dark' ? "text-[#fee75c]" : "text-[#DFA000]" 
+  };
+  
+  if (bmi < 25) return { 
+    category: "Healthy", 
+    color: theme === 'dark' ? "text-[#57f287]" : "text-[#126134]" 
+  };
+  
+  if (bmi < 30) return { 
+    category: "Overweight", 
+    color: theme === 'dark' ? "text-[#fee75c]" : "text-[#F85552]" 
+  };
+  
+  return { 
+    category: "Obese", 
+    color: theme === 'dark' ? "text-[#ed4245]" : "text-[#F85552]" 
+  };
 }
 
 /**

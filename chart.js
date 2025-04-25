@@ -11,15 +11,15 @@
 function generateChartConfig(entries, startWeight, goalWeight, theme = 'dark') {
   // Default colors
   const colors = {
-    line: theme === 'dark' ? '#5865f2' : '#3b82f6',
+    line: theme === 'dark' ? '#5865f2' : '#8DA101',
     gradient: {
-      start: theme === 'dark' ? 'rgba(88, 101, 242, 0.7)' : 'rgba(59, 130, 246, 0.7)',
-      end: theme === 'dark' ? 'rgba(88, 101, 242, 0)' : 'rgba(59, 130, 246, 0)'
+      start: theme === 'dark' ? 'rgba(88, 101, 242, 0.7)' : 'rgba(141, 161, 1, 0.7)',
+      end: theme === 'dark' ? 'rgba(88, 101, 242, 0)' : 'rgba(141, 161, 1, 0)'
     },
-    goal: theme === 'dark' ? '#57f287' : '#22c55e',
-    start: theme === 'dark' ? '#fee75c' : '#eab308',
-    grid: theme === 'dark' ? '#1e1f22' : '#e5e7eb',
-    text: theme === 'dark' ? '#b5bac1' : '#6b7280'
+    goal: theme === 'dark' ? '#57f287' : '#126134',
+    start: theme === 'dark' ? '#fee75c' : '#DFA000',
+    grid: theme === 'dark' ? '#1e1f22' : '#DDD8BE',
+    text: theme === 'dark' ? '#b5bac1' : '#829181'
   };
   
   // Format entries for the chart
@@ -178,9 +178,9 @@ function generateChartConfig(entries, startWeight, goalWeight, theme = 'dark') {
  */
 function generateDistributionChartConfig(entries, ranges, distribution, theme = 'dark') {
   const colors = {
-    bar: theme === 'dark' ? '#5865f2' : '#3b82f6',
-    grid: theme === 'dark' ? '#1e1f22' : '#e5e7eb',
-    text: theme === 'dark' ? '#b5bac1' : '#6b7280'
+    bar: theme === 'dark' ? '#5865f2' : '#8DA101',
+    grid: theme === 'dark' ? '#1e1f22' : '#DDD8BE',
+    text: theme === 'dark' ? '#b5bac1' : '#829181'
   };
   
   return {

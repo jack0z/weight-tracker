@@ -234,10 +234,10 @@ export default function WeightTracker() {
 
   // Use the UI module's function to get trend icons
   const getTrendIcon = (value) => {
-    if (!value || value === 0) return <Minus className="h-4 w-4 text-[#b5bac1]" />;
+    if (!value || value === 0) return <Minus className={`h-4 w-4 ${colors.textMuted}`} />;
     return value < 0 ? 
-      <TrendingDown className="h-4 w-4 text-[#57f287]" /> : 
-      <TrendingUp className="h-4 w-4 text-[#ed4245]" />;
+      <TrendingDown className={`h-4 w-4 ${theme === 'dark' ? 'text-[#57f287]' : 'text-[#126134]'}`} /> : 
+      <TrendingUp className={`h-4 w-4 ${colors.negative}`} />;
   };
 
   // Use Stats module for calculations
@@ -252,7 +252,7 @@ export default function WeightTracker() {
 
   // Use BMI category function from Stats module
   const getBMICategory = (bmi) => {
-    return Stats.getBMICategory(bmi);
+    return Stats.getBMICategory(bmi, theme);
   };
 
   // Use forecast calculation from Stats module
@@ -370,18 +370,18 @@ export default function WeightTracker() {
 
   // Color scheme based on theme
   const colors = {
-    bg: theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-gray-100',
-    cardBg: theme === 'dark' ? 'bg-[#313338]' : 'bg-white',
-    border: theme === 'dark' ? 'border-[#1e1f22]' : 'border-gray-200',
-    text: theme === 'dark' ? 'text-[#e3e5e8]' : 'text-gray-800',
-    textMuted: theme === 'dark' ? 'text-[#b5bac1]' : 'text-gray-500',
-    buttonBgPrimary: theme === 'dark' ? 'bg-[#5865f2] hover:bg-[#4752c4]' : 'bg-blue-600 hover:bg-blue-700',
-    buttonBgSecondary: theme === 'dark' ? 'bg-[#4f545c] hover:bg-[#5d6269]' : 'bg-gray-200 hover:bg-gray-300',
-    buttonBgDanger: theme === 'dark' ? 'bg-[#ed4245] hover:bg-[#eb2c30]' : 'bg-red-500 hover:bg-red-600',
-    inputBg: theme === 'dark' ? 'bg-[#1e1f22]' : 'bg-gray-50',
-    blockBg: theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-gray-50',
-    positive: theme === 'dark' ? 'text-[#57f287]' : 'text-green-600',
-    negative: theme === 'dark' ? 'text-[#ed4245]' : 'text-red-500',
+    bg: theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#F3EAD3]',
+    cardBg: theme === 'dark' ? 'bg-[#313338]' : 'bg-[#EAE4CA]',
+    border: theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]',
+    text: theme === 'dark' ? 'text-[#e3e5e8]' : 'text-[#5C6A72]',
+    textMuted: theme === 'dark' ? 'text-[#b5bac1]' : 'text-[#829181]',
+    buttonBgPrimary: theme === 'dark' ? 'bg-[#5865f2] hover:bg-[#4752c4]' : 'bg-[#8DA101] hover:bg-[#798901]',
+    buttonBgSecondary: theme === 'dark' ? 'bg-[#4f545c] hover:bg-[#5d6269]' : 'bg-[#939F91] hover:bg-[#8A948C]',
+    buttonBgDanger: theme === 'dark' ? 'bg-[#ed4245] hover:bg-[#eb2c30]' : 'bg-[#F85552] hover:bg-[#e04b48]',
+    inputBg: theme === 'dark' ? 'bg-[#1e1f22]' : 'bg-[#E5DFC5]',
+    blockBg: theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]',
+    positive: theme === 'dark' ? 'text-[#57f287]' : 'text-[#126134]',
+    negative: theme === 'dark' ? 'text-[#ed4245]' : 'text-[#F85552]',
   };
 
   // Main UI return
@@ -447,14 +447,14 @@ export default function WeightTracker() {
                       type="number"
                       step="0.1"
                       placeholder="e.g. 80.5"
-                      className={`${colors.inputBg} h-10 pl-3 rounded-md`}
+                      className={`${colors.inputBg} h-10 pl-3 rounded-md ${colors.text}`}
                     />
                     <button
                       onClick={handleSetStart}
                       className={`${colors.buttonBgPrimary} px-4 py-2 h-10 rounded-md flex items-center space-x-1`}
                     >
-                      <Save className="h-4 w-4 mr-1" />
-                      <span>Set</span>
+                      <Save className="h-4 w-4 mr-1 text-white" />
+                      <span className="text-white">Set</span>
                     </button>
                   </div>
                 </div>
@@ -467,14 +467,14 @@ export default function WeightTracker() {
                       type="number"
                       step="0.1"
                       placeholder="e.g. 75.0"
-                      className={`${colors.inputBg} h-10 pl-3 rounded-md`}
+                      className={`${colors.inputBg} h-10 pl-3 rounded-md ${colors.text}`}
                     />
                     <button
                       onClick={handleSetGoal}
                       className={`${colors.buttonBgPrimary} px-4 py-2 h-10 rounded-md flex items-center space-x-1`}
                     >
-                      <Save className="h-4 w-4 mr-1" />
-                      <span>Set</span>
+                      <Save className="h-4 w-4 mr-1 text-white" />
+                      <span className="text-white">Set</span>
                     </button>
                   </div>
                 </div>
@@ -487,14 +487,14 @@ export default function WeightTracker() {
                       type="number"
                       step="0.1"
                       placeholder="e.g. 175"
-                      className={`${colors.inputBg} h-10 pl-3 rounded-md`}
+                      className={`${colors.inputBg} h-10 pl-3 rounded-md ${colors.text}`}
                     />
                     <button
                       onClick={handleSetHeight}
                       className={`${colors.buttonBgPrimary} px-4 py-2 h-10 rounded-md flex items-center space-x-1`}
                     >
-                      <Save className="h-4 w-4 mr-1" />
-                      <span>Set</span>
+                      <Save className="h-4 w-4 mr-1 text-white" />
+                      <span className="text-white">Set</span>
                     </button>
                   </div>
                 </div>
@@ -549,7 +549,7 @@ export default function WeightTracker() {
                     type="date"
                     value={date}
                     onChange={e => setDate(e.target.value)}
-                    className={`${colors.inputBg} h-10 pl-3 pr-8 rounded-md`}
+                    className={`${colors.inputBg} h-10 pl-3 pr-8 rounded-md ${colors.text}`}
                     style={{ 
                       backgroundPosition: "calc(100% - 8px) center",
                       backgroundSize: "20px"
@@ -565,13 +565,13 @@ export default function WeightTracker() {
                       type="number"
                       step="0.1"
                       placeholder="Enter weight"
-                      className={`${colors.inputBg} h-10 pl-3 rounded-md`}
+                      className={`${colors.inputBg} h-10 pl-3 rounded-md ${colors.text}`}
                     />
                     <button 
                       onClick={handleAdd} 
                       className={`${colors.buttonBgPrimary} px-4 py-2 h-10 rounded-md border border-[#4752c4]`}
                     >
-                      Add
+                      <span className="text-white">Add</span>
                     </button>
                   </div>
                 </div>
@@ -585,12 +585,11 @@ export default function WeightTracker() {
                     type="file" 
                     accept=".csv,.xls,.xlsx"
                     onChange={handleImport}
-                    className={`${colors.inputBg} w-full text-sm text-[#b5bac1] rounded-md
+                    className={`${colors.inputBg} w-full text-sm ${colors.text} rounded-md
                       file:mr-4 file:py-2 file:px-4 
                       file:rounded-md file:border-0 
                       file:text-sm file:font-semibold 
-                      file:bg-[#404249] file:text-white 
-                      hover:file:bg-[#4752c4]`}
+                      file:bg-[#8DA101] hover:file:bg-[#798901] file:text-white`}
                   />
                 </div>
               </div>
@@ -602,7 +601,7 @@ export default function WeightTracker() {
             <CardHeader className={`border-b ${colors.border} relative flex flex-row items-center justify-center pb-3 pt-4`}>
               <div className="flex items-center">
                 <CardTitle className={`${colors.text} text-lg`}>Weight History</CardTitle>
-                <div className="text-sm text-[#b5bac1] ml-2">({entries.length} entries)</div>
+                <div className="text-sm ${theme === 'dark' ? 'text-[#57f287]' : 'text-[#126134]'} ml-2">({entries.length} entries)</div>
               </div>
               <button
                 onClick={exportToCsv}
@@ -613,15 +612,15 @@ export default function WeightTracker() {
                     : 'bg-[#36373d] text-[#72767d] cursor-not-allowed'}`}
                 title="Export to CSV"
               >
-                <Download size={14} className="mr-1" />
-                Export
+                <Download size={14} className="mr-1 text-white" />
+                <span className="text-white">Export</span>
               </button>
             </CardHeader>
             <CardContent className={`py-6 px-6`}>
               <div className="overflow-x-auto max-h-[350px]">
                 {entries.length > 0 ? (
                   <Table className="w-full">
-                    <TableHeader className="sticky top-0 bg-[#313338] z-10">
+                    <TableHeader className={`sticky top-0 ${theme === 'dark' ? 'bg-[#313338]' : 'bg-[#EAE4CA]'} z-10`}>
                       <TableRow>
                         <TableHead className="w-[150px]">Date</TableHead>
                         <TableHead>Day</TableHead>
@@ -635,7 +634,9 @@ export default function WeightTracker() {
                         const prevEntry = formattedEntries[index + 1];
                         const change = prevEntry ? (entry.weight - prevEntry.weight).toFixed(1) : "--";
                         const changeColor = change !== "--" ? 
-                          (parseFloat(change) < 0 ? "text-[#57f287]" : parseFloat(change) > 0 ? "text-[#ed4245]" : "") 
+                          (parseFloat(change) < 0 ? 
+                            theme === 'dark' ? "text-[#57f287]" : "text-[#126134]"
+                            : parseFloat(change) > 0 ? "text-[#ed4245]" : "") 
                           : "";
                         
                         return (
@@ -654,7 +655,7 @@ export default function WeightTracker() {
                             <TableCell className="text-right">
                               <button 
                                 onClick={() => handleDelete(entry.id)}
-                                className={`${theme === 'dark' ? 'bg-[#ed4245] hover:bg-[#eb2c30]' : 'bg-[#F85552] hover:bg-[#e04b48]'} inline-flex h-8 w-8 items-center justify-center rounded-md text-white`}
+                                className={`${theme === 'dark' ? 'bg-[#ed4245] hover:bg-[#eb2c30]' : 'bg-[#8DA101] hover:bg-[#798901]'} inline-flex h-8 w-8 items-center justify-center rounded-md text-white`}
                               >
                                 <Trash2 size={16} />
                               </button>
@@ -683,13 +684,13 @@ export default function WeightTracker() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className={`${colors.blockBg} p-4 rounded-md`}>
                     <div className="text-sm text-[#b5bac1] mb-1">Current</div>
-                    <div className="text-xl font-bold text-white">{entries[0].weight} kg</div>
+                    <div className={`text-xl font-bold ${colors.text}`}>{entries[0].weight} kg</div>
                   </div>
                   
                   {goalWeight && (
                     <div className={`${colors.blockBg} p-4 rounded-md`}>
                       <div className="text-sm text-[#b5bac1] mb-1">Goal</div>
-                      <div className="text-xl font-bold text-white">{goalWeight} kg</div>
+                      <div className={`text-xl font-bold ${colors.text}`}>{goalWeight} kg</div>
                     </div>
                   )}
                   
@@ -697,7 +698,7 @@ export default function WeightTracker() {
                     <div className={`${colors.blockBg} p-4 rounded-md`}>
                       <div className="text-sm text-[#b5bac1] mb-1">Total Change</div>
                       <div className="flex items-center">
-                        <span className="text-xl font-bold text-white mr-1">
+                        <span className={`text-xl font-bold ${colors.text} mr-1`}>
                           {(entries[0].weight - startWeight).toFixed(1)} kg
                         </span>
                         {getTrendIcon(entries[0].weight - startWeight)}
@@ -709,7 +710,7 @@ export default function WeightTracker() {
                     <div className={`${colors.blockBg} p-4 rounded-md`}>
                       <div className="text-sm text-[#b5bac1] mb-1">Last Change</div>
                       <div className="flex items-center">
-                        <span className="text-xl font-bold text-white mr-1">
+                        <span className={`text-xl font-bold ${colors.text} mr-1`}>
                           {(entries[0].weight - entries[1].weight).toFixed(1)} kg
                         </span>
                         {getTrendIcon(entries[0].weight - entries[1].weight)}
@@ -721,7 +722,7 @@ export default function WeightTracker() {
                   {height && entries.length > 0 && (
                     <div className={`${colors.blockBg} p-4 rounded-md`}>
                       <div className="text-sm text-[#b5bac1] mb-1">BMI</div>
-                      <div className="text-xl font-bold text-white">{calculateBMI(entries[0].weight, height)}</div>
+                      <div className={`text-xl font-bold ${colors.text}`}>{calculateBMI(entries[0].weight, height)}</div>
                       <div className={`text-sm ${getBMICategory(calculateBMI(entries[0].weight, height)).color} mt-1`}>{getBMICategory(calculateBMI(entries[0].weight, height)).category}</div>
                     </div>
                   )}
@@ -800,13 +801,13 @@ export default function WeightTracker() {
                         <div className="mt-4 pt-4 border-t border-[#1e1f22]">
                           <div className="flex items-center space-x-2 text-sm text-[#b5bac1]">
                             <span>Today</span>
-                            <div className="flex-1 h-[3px] bg-[#4752c4] rounded-full relative">
+                            <div className={`flex-1 h-[3px] ${theme === 'dark' ? 'bg-[#57f287]' : 'bg-[#8DA101]'} rounded-full relative`}>
                               <div 
-                                className="absolute -top-1 left-0 w-2 h-2 rounded-full bg-[#5865f2]"
+                                className={`absolute -top-1 left-0 w-2 h-2 rounded-full ${theme === 'dark' ? 'bg-[#57f287]' : 'bg-[#8DA101]'}`}
                                 style={{ left: "0%" }}
                               ></div>
                               <div 
-                                className="absolute -top-1 right-0 w-2 h-2 rounded-full bg-[#57f287]"
+                                className={`absolute -top-1 right-0 w-2 h-2 rounded-full ${theme === 'dark' ? 'bg-[#57f287]' : 'bg-[#8DA101]'}`}
                                 style={{ right: "0%" }}
                               ></div>
                             </div>
@@ -837,18 +838,18 @@ export default function WeightTracker() {
                   onClick={exportToCsv}
                   className={`${colors.buttonBgPrimary} px-3 py-1 rounded-md flex items-center absolute right-8`}
                 >
-                  <Download className="h-4 w-4 mr-1" />
-                  <span>Export CSV</span>
+                  <Download className="h-4 w-4 mr-1 text-white" />
+                  <span className="text-white">Export CSV</span>
                 </button>
               </CardHeader>
               <CardContent className={`py-6 px-6`}>
                 <div className={`${colors.text}`}>
                   <p>Your weight data is stored locally in your browser. You can export it as a CSV file for backup or analysis in other applications.</p>
                   {formattedEntries.length > 1 ? (
-                    <div className="mt-4 bg-[#2b2d31] p-4 rounded-md">
+                    <div className={`mt-4 ${colors.blockBg} p-4 rounded-md`}>
                       <div className="text-sm">
                         <span className={`${colors.text} font-medium`}>Current data summary:</span>
-                        <ul className="mt-2 space-y-1">
+                        <ul className="mt-2 space-y-1 text-sm ${colors.text}">
                           <li>• Total entries: {entries.length}</li>
                           <li>• Date range: {dateFormat(formattedEntries[formattedEntries.length-1].dateObj, "MMM d, yyyy")} to {dateFormat(formattedEntries[0].dateObj, "MMM d, yyyy")}</li>
                           <li>• Weight range: {Math.min(...formattedEntries.map(e => e.weight))} kg to {Math.max(...formattedEntries.map(e => e.weight))} kg</li>
@@ -856,10 +857,10 @@ export default function WeightTracker() {
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-4 bg-[#2b2d31] p-4 rounded-md">
+                    <div className={`mt-4 ${colors.blockBg} p-4 rounded-md`}>
                       <div className="text-sm">
                         <span className={`${colors.text} font-medium`}>Current data summary:</span>
-                        <ul className="mt-2 space-y-1">
+                        <ul className="mt-2 space-y-1 text-sm ${colors.text}">
                           <li>• Total entries: {entries.length}</li>
                         </ul>
                       </div>
@@ -966,7 +967,7 @@ export default function WeightTracker() {
           )}
           
           {/* Weight Distribution Card */}
-          {entries.length > 5 && (
+          {entries.length >= 5 && (
             <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2`}>
               <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
                 <CardTitle className={`${colors.text} text-lg`}>Weight Distribution</CardTitle>
@@ -985,7 +986,7 @@ export default function WeightTracker() {
                           background: 'transparent',
                           fontFamily: 'Inter, sans-serif',
                         },
-                        colors: ['#5865f2'],
+                        colors: theme === 'dark' ? ['#5865f2'] : ['#8DA101'],
                         plotOptions: {
                           bar: {
                             horizontal: false,
@@ -1022,6 +1023,10 @@ export default function WeightTracker() {
                             style: {
                               colors: '#b5bac1',
                             },
+                            rotate: -45,
+                            rotateAlways: false,
+                            hideOverlappingLabels: true,
+                            trim: true,
                           },
                           axisBorder: {
                             show: false
@@ -1044,7 +1049,7 @@ export default function WeightTracker() {
                           },
                         },
                         tooltip: {
-                          theme: 'dark',
+                          theme: theme === 'dark' ? 'dark' : 'light',
                           y: {
                             formatter: (value) => `${value} days`
                           }
