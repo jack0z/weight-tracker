@@ -66,35 +66,45 @@ async function generateShareLink(username, entries, startWeight, goalWeight, hei
     // Create the data package to share
     const dataToShare = createSharePackage(entries, startWeight, goalWeight, height, theme, username);
     
-    // Save to server via API
-    const response = await fetch('/api/share', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        id: shareId,
-        ...dataToShare
-      })
-    });
+    // Check if we're in a static export (Netlify) environment by checking if API is unavailable
+    const isStaticExport = typeof window !== 'undefined' && window.location.hostname.includes('netlify.app');
     
-    const result = await response.json();
-    
-    if (!result.success) {
-      console.error("Error saving shared data:", result.message);
-      return { success: false, message: `Failed to generate share link: ${result.message}` };
+    // Only try to save to server if we're not in a static export
+    if (!isStaticExport) {
+      try {
+        const response = await fetch('/api/share', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            id: shareId,
+            ...dataToShare
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+          console.error("Error saving shared data:", result.message);
+          // Continue anyway and use localStorage as fallback
+        }
+      } catch (error) {
+        console.warn("Error saving to server, falling back to localStorage:", error);
+        // Continue anyway and use localStorage as fallback
+      }
     }
     
     // Generate the full URL
     const baseUrl = typeof window !== 'undefined' ? window.location.origin + window.location.pathname : '';
     const shareLink = `${baseUrl}?view=${shareId}`;
     
-    // Also save to localStorage as a backup
+    // Save to localStorage for all environments
     try {
       localStorage.setItem(`shared_${shareId}`, JSON.stringify(dataToShare));
     } catch (e) {
       console.warn("Could not save to localStorage", e);
-      // Continue anyway as we've saved to server
+      return { success: false, message: "Failed to generate share link: Could not save data" };
     }
     
     return { 
@@ -120,31 +130,36 @@ async function loadSharedView(shareId) {
   }
   
   try {
-    // First try to get from server
-    try {
-      const response = await fetch(`/api/share?id=${shareId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
+    // Check if we're in a static export (Netlify) environment
+    const isStaticExport = typeof window !== 'undefined' && window.location.hostname.includes('netlify.app');
+    
+    // For static exports, skip the API call and go straight to localStorage
+    if (!isStaticExport) {
+      try {
+        const response = await fetch(`/api/share?id=${shareId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          console.log("Loaded shared data from server");
+          return { success: true, message: "Shared data loaded successfully", data: result.data };
         }
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log("Loaded shared data from server");
-        return { success: true, message: "Shared data loaded successfully", data: result.data };
+        
+        console.log("Server data not found or error:", result.message);
+        // If server request fails, fall back to localStorage
+      } catch (error) {
+        console.error("Error loading from server:", error);
+        // Fall back to localStorage
       }
-      
-      console.log("Server data not found or error:", result.message);
-      // If server request fails, fall back to localStorage
-    } catch (error) {
-      console.error("Error loading from server:", error);
-      // Fall back to localStorage
     }
     
-    // Try to load from localStorage as fallback
-    console.log("Trying localStorage as fallback");
+    // Try to load from localStorage
+    console.log("Trying localStorage for shared data");
     const sharedDataStr = localStorage.getItem(`shared_${shareId}`);
     
     if (sharedDataStr) {
@@ -177,7 +192,23 @@ async function deleteShareLink(shareId) {
     // Remove from localStorage
     localStorage.removeItem(`shared_${shareId}`);
     
-    // We could add server-side deletion here if needed
+    // Check if we're in a static export environment
+    const isStaticExport = typeof window !== 'undefined' && window.location.hostname.includes('netlify.app');
+    
+    // Only try to delete from server if we're not in a static export
+    if (!isStaticExport) {
+      try {
+        await fetch(`/api/share?id=${shareId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+      } catch (error) {
+        console.warn("Could not delete share from server", error);
+        // Continue anyway as we've removed from localStorage
+      }
+    }
     
     return true;
   } catch (error) {
@@ -214,37 +245,41 @@ function cleanupExpiredShares() {
     }
   }
 
-  // If IndexedDB is not supported, skip that part of cleanup
-  if (!isIndexedDBSupported()) {
+  // If IndexedDB is not supported or we're in a static export, skip that part of cleanup
+  if (!isIndexedDBSupported() || (typeof window !== 'undefined' && window.location.hostname.includes('netlify.app'))) {
     return;
   }
 
   // Clean up IndexedDB expired shares
-  const request = indexedDB.open('weightTrackerShares', 1);
-  
-  request.onsuccess = (event) => {
-    const db = event.target.result;
+  try {
+    const request = indexedDB.open('weightTrackerShares', 1);
     
-    try {
-      const transaction = db.transaction(['shares'], 'readwrite');
-      const store = transaction.objectStore('shares');
-      const index = store.index('expiresAt');
+    request.onsuccess = (event) => {
+      const db = event.target.result;
       
-      const range = IDBKeyRange.upperBound(new Date());
-      const cursorRequest = index.openCursor(range);
-      
-      cursorRequest.onsuccess = (event) => {
-        const cursor = event.target.result;
-        if (cursor) {
-          store.delete(cursor.value.id);
-          console.log(`Removed expired IndexedDB share: ${cursor.value.id}`);
-          cursor.continue();
-        }
-      };
-    } catch (error) {
-      console.error("Error cleaning up expired shares in IndexedDB:", error);
-    }
-  };
+      try {
+        const transaction = db.transaction(['shares'], 'readwrite');
+        const store = transaction.objectStore('shares');
+        const index = store.index('expiresAt');
+        
+        const range = IDBKeyRange.upperBound(new Date());
+        const cursorRequest = index.openCursor(range);
+        
+        cursorRequest.onsuccess = (event) => {
+          const cursor = event.target.result;
+          if (cursor) {
+            store.delete(cursor.value.id);
+            console.log(`Removed expired IndexedDB share: ${cursor.value.id}`);
+            cursor.continue();
+          }
+        };
+      } catch (error) {
+        console.error("Error cleaning up expired shares in IndexedDB:", error);
+      }
+    };
+  } catch (error) {
+    console.error("Error opening IndexedDB:", error);
+  }
 }
 
 // Run cleanup on startup
@@ -255,9 +290,10 @@ if (typeof window !== 'undefined') {
   setInterval(cleanupExpiredShares, 60 * 60 * 1000);
 }
 
-// Export functions
+// Export the functions
 export {
   generateShareLink,
   loadSharedView,
-  deleteShareLink
+  deleteShareLink,
+  cleanupExpiredShares
 }; 

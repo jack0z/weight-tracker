@@ -72,6 +72,18 @@ const nextConfig = {
 }
 ```
 
+### View Mode in Static Deployments
+
+When deployed as a static site (to Netlify, GitHub Pages, etc.), the view mode functionality will use localStorage for data persistence rather than server APIs. To share your weight tracker:
+
+1. Add your weight entries locally
+2. Share the view using the "Share" button
+3. Copy the generated link (contains a view ID parameter)
+
+The share data is stored in your browser's localStorage with a key like `shared_username_timestamp`. When someone visits the share link, the app will look for this data in localStorage.
+
+> **Note:** In static deployments, the sharing functionality is limited to the same browser. To share with others, you'll need to implement a backend service or use a service like Firebase, Supabase, etc.
+
 ### Hosting Services
 
 You can deploy this application to:

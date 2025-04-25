@@ -64,6 +64,13 @@ export default function WeightTracker() {
     // Always save theme preference to localStorage
     localStorage.setItem("theme", newTheme);
     
+    // Apply theme directly to document
+    if (newTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    
     // If in view mode, update the viewData theme too
     if (viewMode && viewData) {
       const updatedViewData = {
@@ -72,11 +79,27 @@ export default function WeightTracker() {
       };
       setViewData(updatedViewData);
       
-      // Directly apply theme to document
-      if (newTheme === "dark") {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
+      // Also update the shared data in localStorage if in a static environment
+      if (typeof window !== 'undefined' && window.location.search) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const viewParam = urlParams.get('view');
+        
+        if (viewParam) {
+          try {
+            const storedData = localStorage.getItem(`shared_${viewParam}`);
+            if (storedData) {
+              const parsedData = JSON.parse(storedData);
+              const updatedData = {
+                ...parsedData,
+                theme: newTheme
+              };
+              localStorage.setItem(`shared_${viewParam}`, JSON.stringify(updatedData));
+              console.log("Updated theme in shared data:", updatedData);
+            }
+          } catch (error) {
+            console.error("Error updating theme in shared data:", error);
+          }
+        }
       }
     }
   };
@@ -460,15 +483,39 @@ export default function WeightTracker() {
 
   // Add this new useEffect to check for view mode in URL
   useEffect(() => {
+    if (!isClient) return;
+    
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
     
     if (viewParam) {
       setIsLoading(true);
       
+      // Check if we're in a static export (Netlify) environment
+      const isStaticExport = typeof window !== 'undefined' && window.location.hostname.includes('netlify.app');
+      console.log("Environment:", isStaticExport ? "Static export" : "Dynamic server");
+      
       // Use the async function with proper error handling
       (async () => {
         try {
+          // For static exports, try to get data directly from localStorage first
+          if (isStaticExport) {
+            try {
+              const localData = localStorage.getItem(`shared_${viewParam}`);
+              if (localData) {
+                const parsedData = JSON.parse(localData);
+                console.log("Found shared data in localStorage:", parsedData);
+                setViewMode(true);
+                setViewData(parsedData);
+                setIsLoading(false);
+                return;
+              }
+            } catch (error) {
+              console.error("Error reading from localStorage:", error);
+            }
+          }
+          
+          // If not static or no localStorage data, try Share module
           const result = await Share.loadSharedView(viewParam);
           
           if (result.success) {
@@ -489,7 +536,7 @@ export default function WeightTracker() {
     } else {
       setIsLoading(false);
     }
-  }, []);
+  }, [isClient]);
 
   // Generate and share a link
   const handleShare = async () => {
@@ -563,6 +610,78 @@ export default function WeightTracker() {
     blockBg: theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]',
     positive: theme === 'dark' ? 'text-[#57f287]' : 'text-[#126134]',
     negative: theme === 'dark' ? 'text-[#ed4245]' : 'text-[#F85552]',
+  };
+
+  // Set isClient once component mounts
+  useEffect(() => {
+    setIsClient(true);
+    
+    // Load theme from localStorage
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme) {
+      setTheme(savedTheme);
+      
+      // Apply theme to document
+      if (savedTheme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    }
+    
+    // Initialize demo data for Netlify deployment
+    if (typeof window !== 'undefined' && window.location.hostname.includes('netlify.app')) {
+      createDemoShareData();
+    }
+  }, []);
+  
+  // Create demo share data for Netlify deployment
+  const createDemoShareData = () => {
+    const demoShareId = 'demo_share';
+    
+    // Check if demo data already exists
+    if (!localStorage.getItem(`shared_${demoShareId}`)) {
+      console.log("Creating demo share data for Netlify deployment");
+      
+      // Create demo entries - last 30 days with a weight loss trend
+      const demoEntries = [];
+      const today = new Date();
+      
+      for (let i = 0; i < 30; i++) {
+        const entryDate = new Date();
+        entryDate.setDate(today.getDate() - i);
+        
+        // Start at 80kg and go down by 0.1kg each day, with some random variation
+        const baseWeight = 80 - (i * 0.1);
+        const variation = Math.random() * 0.4 - 0.2; // -0.2 to +0.2 variation
+        const weight = (baseWeight + variation).toFixed(1);
+        
+        demoEntries.push({
+          date: entryDate.toISOString().split('T')[0],
+          weight: weight
+        });
+      }
+      
+      // Create share package
+      const demoShareData = {
+        entries: demoEntries,
+        startWeight: "80.0",
+        goalWeight: "75.0",
+        height: "175",
+        theme: "light",
+        sharedBy: "Demo User",
+        sharedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // Expires in 1 year
+      };
+      
+      // Save to localStorage
+      localStorage.setItem(`shared_${demoShareId}`, JSON.stringify(demoShareData));
+      
+      // Also create a permalink
+      localStorage.setItem(`shared_luka_m9wkk9vl`, JSON.stringify(demoShareData));
+      
+      console.log("Demo share data created:", demoShareData);
+    }
   };
 
   // Main UI return
