@@ -2,7 +2,18 @@
   command = "npm run build"
   publish = "out"
 
-# Handle direct access to share IDs
+# Handle demo shares by exact path
+[[redirects]]
+  from = "/share/demo_share"
+  to = "/share-fallback?id=demo_share"
+  status = 200
+
+[[redirects]]
+  from = "/share/demo_permalink"
+  to = "/share-fallback?id=demo_permalink"
+  status = 200
+
+# Handle all other share paths
 [[redirects]]
   from = "/share/*"
   to = "/share-fallback?id=:splat"
