@@ -6,12 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "netlify-build": "npm run build && cd netlify/functions && npm install && cd ../.."
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.0.2",
     "apexcharts": "^4.7.0",
-    "axios": "^1.9.0",
+    "axios": "^1.6.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "date-fns": "^2.30.0",
