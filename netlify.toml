@@ -6,7 +6,7 @@
   publish = "out"
   
   # Default build command
-  command = "npm install --legacy-peer-deps && npm run build"
+  command = "npm install --legacy-peer-deps --ignore-engines && npm run build"
   
   # Directory with serverless functions
   functions = "functions"

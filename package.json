@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "next dev",
-    "build": "next build --legacy-peer-deps",
+    "build": "next build",
     "start": "next start",
     "test-db": "node scripts/test-db-connection.js",
     "init-db": "node scripts/init-database.js"
