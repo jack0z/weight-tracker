@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Check, Copy, X } from 'lucide-react';
+import { Copy, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 /**
@@ -12,17 +10,27 @@ import { toast } from 'sonner';
  * @param {function} props.onClose - Function to close the modal
  * @param {string} props.shareLink - The generated share link
  * @param {string} props.theme - Current theme (dark or light)
- * @param {boolean} props.isPermalink - Whether this is a permalink share
  */
-const ShareModal = ({ isOpen, onClose, shareLink, theme, isPermalink = false }) => {
-  const [copySuccess, setCopySuccess] = useState(false);
+export default function ShareModal({ isOpen, onClose, shareLink, theme }) {
+  const [isCopied, setIsCopied] = useState(false);
   
   if (!isOpen) return null;
   
-  const handleCopy = () => {
+  // Define colors based on theme
+  const colors = {
+    bg: theme === 'dark' ? 'bg-[#313338]' : 'bg-[#EAE4CA]',
+    border: theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]',
+    text: theme === 'dark' ? 'text-[#e3e5e8]' : 'text-[#5C6A72]',
+    muted: theme === 'dark' ? 'text-[#b5bac1]' : 'text-[#829181]',
+    primaryButton: theme === 'dark' ? 'bg-[#5865f2] hover:bg-[#4752c4]' : 'bg-[#8DA101] hover:bg-[#798901]',
+    inputBg: theme === 'dark' ? 'bg-[#1e1f22]' : 'bg-[#E5DFC5]',
+    noteBg: theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#F3EAD3]',
+  };
+  
+  const copyToClipboard = () => {
     navigator.clipboard.writeText(shareLink)
       .then(() => {
-        setCopySuccess(true);
+        setIsCopied(true);
         toast.success("Link copied to clipboard", {
           style: {
             background: theme === 'dark' ? "#313338" : "#ffffff",
@@ -31,8 +39,9 @@ const ShareModal = ({ isOpen, onClose, shareLink, theme, isPermalink = false }) 
           }
         });
         
+        // Reset copied state after 2 seconds
         setTimeout(() => {
-          setCopySuccess(false);
+          setIsCopied(false);
         }, 2000);
       })
       .catch((error) => {
@@ -49,50 +58,59 @@ const ShareModal = ({ isOpen, onClose, shareLink, theme, isPermalink = false }) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <Card className={`w-full max-w-md mx-4 ${theme === 'dark' ? 'bg-[#313338] text-white border-[#1e1f22]' : 'bg-white'}`}>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex justify-between items-center">
-            <span>{isPermalink ? 'Permalink Created' : 'Share Link Created'}</span>
-            <Button 
-              onClick={onClose} 
-              className={`p-1 h-8 w-8 rounded-full ${theme === 'dark' ? 'bg-[#4f545c] hover:bg-[#5d6269] text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
+      <div className={`${colors.bg} ${colors.border} border rounded-lg shadow-lg w-full max-w-md mx-4`}>
+        <div className="flex justify-between items-center border-b p-4">
+          <h3 className={`text-lg font-medium ${colors.text}`}>Share Your Progress</h3>
+          <button 
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-500"
+            aria-label="Close"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        
+        <div className="p-4">
+          <p className={`mb-4 ${colors.muted}`}>
+            Share this link with others to let them view your weight tracking data in read-only mode:
+          </p>
+          
+          <div className="flex items-center mb-6">
+            <input 
+              type="text" 
+              value={shareLink} 
+              readOnly 
+              className={`flex-1 ${colors.inputBg} ${colors.border} ${colors.text} p-2 rounded-l-md`}
+            />
+            <button 
+              onClick={copyToClipboard}
+              className={`p-2 ${colors.primaryButton} text-white rounded-r-md`}
+              aria-label="Copy to clipboard"
             >
-              <X size={16} />
-            </Button>
-          </CardTitle>
-          <CardDescription className={theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>
-            {isPermalink 
-              ? 'This permalink will always show your latest weight data.' 
-              : 'This link will expire in 30 days.'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4">
-            <div className={`flex items-center mt-2 p-2 rounded-md ${theme === 'dark' ? 'bg-[#1e1f22]' : 'bg-gray-100'}`}>
-              <div className="flex-1 truncate text-sm">
-                {shareLink}
-              </div>
-              <Button 
-                onClick={handleCopy} 
-                className={`ml-2 ${theme === 'dark' ? 'bg-[#5865f2] hover:bg-[#4752c4]' : 'bg-indigo-600 hover:bg-indigo-700'} text-white`}
-              >
-                {copySuccess ? <Check size={16} /> : <Copy size={16} />}
-              </Button>
-            </div>
+              <Copy size={18} />
+            </button>
           </div>
           
-          <div className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
-            <p>Anyone with this link can view your weight tracker data.</p>
-            <p className="mt-2">
-              {isPermalink 
-                ? 'Sharing again with permalink will update the data shown by this link.' 
-                : 'Create a new share link when you want to share updated data.'}
-            </p>
+          <div className={`p-3 rounded-md ${colors.noteBg} ${colors.muted} text-sm`}>
+            <p className="mb-1">⚠️ Important notes:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>The link expires in 30 days</li>
+              <li>Shared data is stored locally in your browser</li>
+              <li>Anyone with this link can view your data but cannot edit it</li>
+              <li>Updates to your tracker will be visible to anyone with the link</li>
+            </ul>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        
+        <div className="border-t p-4 flex justify-end">
+          <button
+            onClick={onClose}
+            className={`px-4 py-2 ${colors.primaryButton} text-white rounded-md`}
+          >
+            Done
+          </button>
+        </div>
+      </div>
     </div>
   );
-};
-
-export default ShareModal; 
+} 

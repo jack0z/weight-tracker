@@ -326,13 +326,13 @@ export default function ViewMode({
               <CardTitle className={`${colors.text} text-base sm:text-lg`}>Weight History</CardTitle>
               <div className={`text-xs sm:text-sm ${colors.textMuted} ml-2`}>({formattedEntries.length} entries)</div>
             </CardHeader>
-            <CardContent className="py-4 px-2 sm:py-6 sm:px-6">
-              <div className="overflow-x-auto max-h-[250px] sm:max-h-[350px]">
+            <CardContent className={`py-4 px-2 sm:py-6 sm:px-4`}>
+              <div style={{ maxHeight: '350px', overflow: 'auto' }} className="scrollbar-hide">
                 {formattedEntries.length > 0 ? (
-                  <Table className="w-full">
-                    <TableHeader className={`sticky top-0 ${theme === 'dark' ? 'bg-[#313338]' : 'bg-[#EAE4CA]'} z-10`}>
+                  <Table>
+                    <TableHeader className="sticky top-0 z-10" style={{ background: theme === 'dark' ? '#313338' : '#EAE4CA' }}>
                       <TableRow>
-                        <TableHead className="w-[100px] sm:w-[150px] text-xs sm:text-sm">Date</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Date</TableHead>
                         <TableHead className="text-xs sm:text-sm">Day</TableHead>
                         <TableHead className="text-xs sm:text-sm">Weight (kg)</TableHead>
                         <TableHead className="text-xs sm:text-sm">Change</TableHead>
@@ -375,131 +375,117 @@ export default function ViewMode({
             </CardContent>
           </Card>
           
-          {/* Weight Distribution Card */}
-          {entries.length >= 5 && (
+          {/* Weight Averages Card - Replacing Distribution Card */}
+          {formattedEntries.length >= 5 && (
             <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden mt-2`}>
               <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-                <CardTitle className={`${colors.text} text-base sm:text-lg`}>Weight Distribution</CardTitle>
+                <CardTitle className={`${colors.text} text-base sm:text-lg`}>Weight Averages</CardTitle>
               </CardHeader>
               <CardContent className={`py-4 px-2 sm:py-6 sm:px-6`}>
-                <div className="h-[180px] sm:h-[200px]">
-                  {typeof window !== 'undefined' && (
-                    <Chart 
-                      options={{
-                        chart: {
-                          type: 'bar',
-                          height: 180,
-                          toolbar: {
-                            show: false,
-                          },
-                          background: 'transparent',
-                          fontFamily: 'Inter, sans-serif',
-                        },
-                        colors: theme === 'dark' ? ['#5865f2'] : ['#8DA101'],
-                        plotOptions: {
-                          bar: {
-                            horizontal: false,
-                            columnWidth: '70%',
-                            borderRadius: 4,
-                            distributed: true,
-                          }
-                        },
-                        dataLabels: {
-                          enabled: false
-                        },
-                        grid: {
-                          show: false,  // Hide all grid lines
-                          borderColor: '#1e1f22',
-                          strokeDashArray: 3,
-                          padding: {
-                            left: 0,
-                            right: 0
-                          },
-                          xaxis: {
-                            lines: {
-                              show: false
-                            }
-                          },
-                          yaxis: {
-                            lines: {
-                              show: false
-                            }
-                          }
-                        },
-                        xaxis: {
-                          categories: getWeightRanges(),
-                          labels: {
-                            style: {
-                              colors: '#b5bac1',
-                              fontSize: '10px',
-                            },
-                            rotate: -45,
-                            rotateAlways: false,
-                            hideOverlappingLabels: true,
-                            trim: true,
-                          },
-                          axisBorder: {
-                            show: false
-                          },
-                          axisTicks: {
-                            show: false
-                          }
-                        },
-                        yaxis: {
-                          title: {
-                            text: 'Days',
-                            style: {
-                              color: '#b5bac1',
-                              fontSize: '10px',
-                            }
-                          },
-                          labels: {
-                            style: {
-                              colors: '#b5bac1',
-                              fontSize: '10px',
-                            },
-                          },
-                        },
-                        tooltip: {
-                          theme: theme === 'dark' ? 'dark' : 'light',
-                          y: {
-                            formatter: (value) => `${value} days`
-                          }
-                        },
-                        responsive: [
-                          {
-                            breakpoint: 640,
-                            options: {
-                              chart: {
-                                height: 180
-                              },
-                              xaxis: {
-                                labels: {
-                                  style: {
-                                    fontSize: '8px'
-                                  },
-                                  rotate: -45
-                                }
-                              },
-                              yaxis: {
-                                labels: {
-                                  style: {
-                                    fontSize: '8px'
-                                  }
-                                }
-                              }
-                            }
-                          }
-                        ]
-                      }} 
-                      series={[{
-                        name: 'Days at Weight',
-                        data: getWeightDistribution()
-                      }]} 
-                      type="bar" 
-                      height={window.innerWidth < 640 ? 180 : 200}
-                    />
-                  )}
+                <div className="overflow-x-auto">
+                  <Table className="w-full">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs sm:text-sm">Period</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Range</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Starting</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Current</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Change</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Daily Avg</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Trend</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {/* 7-day row */}
+                      {(function() {
+                        const sevenDayAvg = Stats.calculatePeriodAverage(formattedEntries, 7);
+                        return sevenDayAvg && sevenDayAvg.hasData && (
+                          <TableRow>
+                            <TableCell className={`${colors.text} font-medium text-xs sm:text-sm`}>7 Days</TableCell>
+                            <TableCell className="text-xs sm:text-sm">{sevenDayAvg.startDate} - {sevenDayAvg.endDate}</TableCell>
+                            <TableCell className="text-xs sm:text-sm">{sevenDayAvg.startWeight} kg</TableCell>
+                            <TableCell className="text-xs sm:text-sm">{sevenDayAvg.endWeight} kg</TableCell>
+                            <TableCell 
+                              className={`text-xs sm:text-sm ${parseFloat(sevenDayAvg.totalChange) < 0 ? colors.positive : parseFloat(sevenDayAvg.totalChange) > 0 ? colors.negative : ""}`}
+                            >
+                              {sevenDayAvg.totalChange > 0 ? "+" : ""}{sevenDayAvg.totalChange} kg
+                            </TableCell>
+                            <TableCell className="text-xs sm:text-sm">
+                              {sevenDayAvg.value > 0 ? "+" : ""}{sevenDayAvg.value} kg/day
+                            </TableCell>
+                            <TableCell className="flex items-center">
+                              {getTrendIcon(parseFloat(sevenDayAvg.value))}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })()}
+                      
+                      {/* 14-day row */}
+                      {(function() {
+                        const fourteenDayAvg = Stats.calculatePeriodAverage(formattedEntries, 14);
+                        return fourteenDayAvg && fourteenDayAvg.hasData && (
+                          <TableRow>
+                            <TableCell className={`${colors.text} font-medium text-xs sm:text-sm`}>14 Days</TableCell>
+                            <TableCell className="text-xs sm:text-sm">{fourteenDayAvg.startDate} - {fourteenDayAvg.endDate}</TableCell>
+                            <TableCell className="text-xs sm:text-sm">{fourteenDayAvg.startWeight} kg</TableCell>
+                            <TableCell className="text-xs sm:text-sm">{fourteenDayAvg.endWeight} kg</TableCell>
+                            <TableCell 
+                              className={`text-xs sm:text-sm ${parseFloat(fourteenDayAvg.totalChange) < 0 ? colors.positive : parseFloat(fourteenDayAvg.totalChange) > 0 ? colors.negative : ""}`}
+                            >
+                              {fourteenDayAvg.totalChange > 0 ? "+" : ""}{fourteenDayAvg.totalChange} kg
+                            </TableCell>
+                            <TableCell className="text-xs sm:text-sm">
+                              {fourteenDayAvg.value > 0 ? "+" : ""}{fourteenDayAvg.value} kg/day
+                            </TableCell>
+                            <TableCell className="flex items-center">
+                              {getTrendIcon(parseFloat(fourteenDayAvg.value))}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })()}
+                      
+                      {/* 30-day row */}
+                      {(function() {
+                        const thirtyDayAvg = Stats.calculatePeriodAverage(formattedEntries, 30);
+                        return thirtyDayAvg && thirtyDayAvg.hasData && (
+                          <TableRow>
+                            <TableCell className={`${colors.text} font-medium text-xs sm:text-sm`}>30 Days</TableCell>
+                            <TableCell className="text-xs sm:text-sm">{thirtyDayAvg.startDate} - {thirtyDayAvg.endDate}</TableCell>
+                            <TableCell className="text-xs sm:text-sm">{thirtyDayAvg.startWeight} kg</TableCell>
+                            <TableCell className="text-xs sm:text-sm">{thirtyDayAvg.endWeight} kg</TableCell>
+                            <TableCell 
+                              className={`text-xs sm:text-sm ${parseFloat(thirtyDayAvg.totalChange) < 0 ? colors.positive : parseFloat(thirtyDayAvg.totalChange) > 0 ? colors.negative : ""}`}
+                            >
+                              {thirtyDayAvg.totalChange > 0 ? "+" : ""}{thirtyDayAvg.totalChange} kg
+                            </TableCell>
+                            <TableCell className="text-xs sm:text-sm">
+                              {thirtyDayAvg.value > 0 ? "+" : ""}{thirtyDayAvg.value} kg/day
+                            </TableCell>
+                            <TableCell className="flex items-center">
+                              {getTrendIcon(parseFloat(thirtyDayAvg.value))}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })()}
+                      
+                      {/* No data row */}
+                      {(function() {
+                        const sevenDayAvg = Stats.calculatePeriodAverage(formattedEntries, 7);
+                        const fourteenDayAvg = Stats.calculatePeriodAverage(formattedEntries, 14);
+                        const thirtyDayAvg = Stats.calculatePeriodAverage(formattedEntries, 30);
+                        const hasAnyData = (sevenDayAvg && sevenDayAvg.hasData) || 
+                                          (fourteenDayAvg && fourteenDayAvg.hasData) || 
+                                          (thirtyDayAvg && thirtyDayAvg.hasData);
+                        return !hasAnyData && (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-4 text-[#b5bac1] text-xs sm:text-sm">
+                              Need more data points for averages. Add entries over time to see trends.
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })()}
+                    </TableBody>
+                  </Table>
                 </div>
               </CardContent>
             </Card>

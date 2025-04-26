@@ -1,22 +1,29 @@
-// share.js - Sharing functionality for weight tracker (client-side)
+// share.js - Sharing functionality for weight tracker
+
+/**
+ * Check if we're in a browser environment
+ * @returns {boolean} - Whether we're in a browser
+ */
+function isBrowser() {
+  return typeof window !== 'undefined';
+}
 
 /**
  * Check if IndexedDB is supported by the browser
  * @returns {boolean} - Whether IndexedDB is supported
  */
 function isIndexedDBSupported() {
-  if (typeof window === 'undefined') return false;
+  if (!isBrowser()) return false;
   return window.indexedDB !== undefined && window.indexedDB !== null;
 }
 
 /**
  * Generate a unique ID for the share link
  * @param {string} username - The username of the current user
- * @param {boolean} usePermalink - Whether to generate a permalink
  * @returns {string} - A unique share ID
  */
-function generateShareId(username, usePermalink = false) {
-  return `${username}_${Date.now().toString(36)}_${usePermalink ? 'permalink' : ''}`;
+function generateShareId(username) {
+  return `${username}_${Date.now().toString(36)}`;
 }
 
 /**
@@ -38,8 +45,7 @@ function createSharePackage(entries, startWeight, goalWeight, height, theme, use
     theme,
     sharedBy: username,
     sharedAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Expires in 30 days
-    isPermalink: false
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // Expires in 30 days
   };
 }
 
@@ -51,10 +57,9 @@ function createSharePackage(entries, startWeight, goalWeight, height, theme, use
  * @param {string|number} goalWeight - Goal weight
  * @param {string|number} height - User height
  * @param {string} theme - Current theme
- * @param {boolean} usePermalink - Whether to generate a permalink
  * @returns {Object} - Result object with success status, message, and shareLink if successful
  */
-async function generateShareLink(username, entries, startWeight, goalWeight, height, theme, usePermalink = false) {
+function generateShareLink(username, entries, startWeight, goalWeight, height, theme) {
   if (!username) {
     return { success: false, message: "You must be logged in to share your tracker" };
   }
@@ -64,41 +69,31 @@ async function generateShareLink(username, entries, startWeight, goalWeight, hei
   }
   
   try {
-    const shareId = generateShareId(username, usePermalink);
+    // Generate a unique ID for sharing
+    const shareId = generateShareId(username);
     
-    // Create the share data package
-    const shareData = {
-      entries: entries,
-      startWeight: startWeight,
-      goalWeight: goalWeight,
-      height: height,
-      theme: theme || 'light',
-      sharedBy: username,
-      sharedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Expires in 30 days
-      isPermalink: usePermalink
-    };
+    // Create the data package to share
+    const dataToShare = createSharePackage(entries, startWeight, goalWeight, height, theme, username);
     
-    // Save the data to localStorage (in a real app this would be stored in a database)
-    localStorage.setItem(`shared_${shareId}`, JSON.stringify(shareData));
+    // Save to both localStorage (for backward compatibility) and IndexedDB (for cross-device support)
+    localStorage.setItem(`shared_${shareId}`, JSON.stringify(dataToShare));
     
-    // For static exports, we use the share-fallback page with query parameters
-    const shareLink = `${window.location.origin}/share-fallback?id=${encodeURIComponent(shareId)}`;
+    // Also save to shared DB collection
+    saveToSharedCollection(shareId, dataToShare);
     
-    return {
-      success: true,
-      shareLink: shareLink,
-      isPermalink: usePermalink,
-      message: usePermalink ? 
-        "Permalink created! This link will always show your latest data." : 
-        "Share link created! This link will expire in 30 days."
+    // Generate the full URL
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin + window.location.pathname : '';
+    const shareLink = `${baseUrl}?view=${shareId}`;
+    
+    return { 
+      success: true, 
+      message: "Share link generated successfully", 
+      shareLink,
+      shareId 
     };
   } catch (error) {
     console.error("Error generating share link:", error);
-    return {
-      success: false,
-      message: "Failed to generate share link: " + error.message
-    };
+    return { success: false, message: `Failed to generate share link: ${error.message}` };
   }
 }
 
@@ -120,7 +115,8 @@ function saveToSharedCollection(shareId, data) {
     
     request.onerror = (event) => {
       console.error("IndexedDB error:", event.target.error);
-      reject(event.target.error);
+      // Instead of rejecting, we'll resolve to allow graceful fallback
+      resolve();
     };
     
     request.onupgradeneeded = (event) => {
@@ -130,27 +126,46 @@ function saveToSharedCollection(shareId, data) {
       if (!db.objectStoreNames.contains('shares')) {
         const store = db.createObjectStore('shares', { keyPath: 'id' });
         store.createIndex('expiresAt', 'expiresAt', { unique: false });
+        console.log("Created 'shares' object store");
       }
     };
     
     request.onsuccess = (event) => {
-      const db = event.target.result;
-      const transaction = db.transaction(['shares'], 'readwrite');
-      const store = transaction.objectStore('shares');
-      
-      // Add the data to the store
-      const addRequest = store.put({ 
-        id: shareId,
-        data: data,
-        expiresAt: new Date(data.expiresAt)
-      });
-      
-      addRequest.onsuccess = () => resolve();
-      addRequest.onerror = (event) => reject(event.target.error);
+      try {
+        const db = event.target.result;
+        
+        // Check if the object store exists before proceeding
+        if (!db.objectStoreNames.contains('shares')) {
+          // Handle the case where the store doesn't exist
+          console.warn("The 'shares' object store doesn't exist. Will use localStorage only.");
+          resolve();
+          return;
+        }
+        
+        const transaction = db.transaction(['shares'], 'readwrite');
+        const store = transaction.objectStore('shares');
+        
+        // Add the data to the store
+        const addRequest = store.put({ 
+          id: shareId,
+          data: data,
+          expiresAt: new Date(data.expiresAt)
+        });
+        
+        addRequest.onsuccess = () => resolve();
+        addRequest.onerror = (event) => {
+          console.error("Error saving to IndexedDB:", event.target.error);
+          resolve(); // Still resolve to allow graceful fallback
+        };
+      } catch (error) {
+        console.error("Transaction error:", error);
+        resolve(); // Resolve instead of reject to allow graceful fallback
+      }
     };
   }).catch(error => {
     console.error("Error saving to IndexedDB:", error);
     // Fall back to localStorage only if IndexedDB fails
+    return Promise.resolve();
   });
 }
 
@@ -223,29 +238,47 @@ function getFromSharedCollection(shareId) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('weightTrackerShares', 1);
     
-    request.onerror = (event) => reject(event.target.error);
+    request.onerror = (event) => {
+      console.error("IndexedDB error:", event.target.error);
+      resolve(null); // Resolve with null instead of rejecting
+    };
     
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
       if (!db.objectStoreNames.contains('shares')) {
         db.createObjectStore('shares', { keyPath: 'id' });
+        console.log("Created 'shares' object store during get operation");
       }
     };
     
     request.onsuccess = (event) => {
-      const db = event.target.result;
-      
       try {
+        const db = event.target.result;
+        
+        // Check if the object store exists
+        if (!db.objectStoreNames.contains('shares')) {
+          console.warn("The 'shares' object store doesn't exist for reading");
+          resolve(null);
+          return;
+        }
+        
         const transaction = db.transaction(['shares'], 'readonly');
         const store = transaction.objectStore('shares');
         const getRequest = store.get(shareId);
         
         getRequest.onsuccess = () => resolve(getRequest.result);
-        getRequest.onerror = (event) => reject(event.target.error);
+        getRequest.onerror = (event) => {
+          console.error("Error reading from IndexedDB:", event.target.error);
+          resolve(null);
+        };
       } catch (error) {
-        reject(error);
+        console.error("Transaction error during read:", error);
+        resolve(null);
       }
     };
+  }).catch(error => {
+    console.error("Error reading from IndexedDB:", error);
+    return null;
   });
 }
 
@@ -266,45 +299,63 @@ function deleteShareLink(shareId) {
 }
 
 /**
- * Delete shared data from IndexedDB
+ * Delete data from IndexedDB
  * @param {string} shareId - The share ID to delete
  * @returns {Promise} - Promise that resolves when data is deleted
  */
 function deleteFromSharedCollection(shareId) {
-  // If IndexedDB is not supported, just silently return
+  // If IndexedDB is not supported, just return
   if (!isIndexedDBSupported()) {
     return Promise.resolve();
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const request = indexedDB.open('weightTrackerShares', 1);
     
-    request.onerror = (event) => reject(event.target.error);
+    request.onerror = () => {
+      // Just resolve on error (fail silently)
+      resolve();
+    };
     
-    request.onsuccess = (event) => {
+    request.onupgradeneeded = (event) => {
       const db = event.target.result;
-      
-      try {
-        const transaction = db.transaction(['shares'], 'readwrite');
-        const store = transaction.objectStore('shares');
-        const deleteRequest = store.delete(shareId);
-        
-        deleteRequest.onsuccess = () => resolve();
-        deleteRequest.onerror = (event) => reject(event.target.error);
-      } catch (error) {
-        reject(error);
+      if (!db.objectStoreNames.contains('shares')) {
+        db.createObjectStore('shares', { keyPath: 'id' });
       }
     };
-  }).catch(error => {
-    console.error("Error deleting from IndexedDB:", error);
+    
+    request.onsuccess = (event) => {
+      try {
+        const db = event.target.result;
+        
+        // Check if object store exists
+        if (!db.objectStoreNames.contains('shares')) {
+          resolve();
+          return;
+        }
+        
+        const transaction = db.transaction(['shares'], 'readwrite');
+        const store = transaction.objectStore('shares');
+        
+        const deleteRequest = store.delete(shareId);
+        deleteRequest.onsuccess = () => resolve();
+        deleteRequest.onerror = () => resolve(); // Just resolve on error
+      } catch (error) {
+        console.error("Error in delete transaction:", error);
+        resolve();
+      }
+    };
+  }).catch(() => {
+    // Just resolve on any error (fail silently)
+    return Promise.resolve();
   });
 }
 
 // Clean up expired shares
 function cleanupExpiredShares() {
-  // Skip if not in browser environment
-  if (typeof window === 'undefined') return;
-  
+  // Skip cleanup entirely on server-side
+  if (!isBrowser()) return;
+
   // Check localStorage for expired shares
   if (typeof localStorage !== 'undefined') {
     try {
@@ -343,21 +394,8 @@ function cleanupExpiredShares() {
     const db = event.target.result;
     
     try {
-      // Check if the 'shares' object store exists before attempting transaction
-      if (!db.objectStoreNames.contains('shares')) {
-        console.log('Shares object store not found, skipping cleanup');
-        return;
-      }
-      
       const transaction = db.transaction(['shares'], 'readwrite');
       const store = transaction.objectStore('shares');
-      
-      // Check if 'expiresAt' index exists
-      if (!store.indexNames.contains('expiresAt')) {
-        console.log('ExpiresAt index not found, skipping index-based cleanup');
-        return;
-      }
-      
       const index = store.index('expiresAt');
       
       const range = IDBKeyRange.upperBound(new Date());
@@ -378,7 +416,7 @@ function cleanupExpiredShares() {
 }
 
 // Run cleanup on startup - only in browser
-if (typeof window !== 'undefined') {
+if (isBrowser()) {
   setTimeout(cleanupExpiredShares, 1000);
   
   // Schedule cleanup to run periodically (every hour)

@@ -1,10 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
-import { Input } from "./components/ui/input";
-import { Button } from "./components/ui/button";
-import { format as dateFormat, parseISO, subDays, addDays } from "date-fns";
+import { format as dateFormat } from "date-fns";
 import { Trash2, Save, TrendingDown, TrendingUp, Minus, Download, Calendar, ArrowRight, LogOut, Sun, Moon, Share2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import dynamic from "next/dynamic";
@@ -15,14 +12,28 @@ import * as Data from './data.js';
 import * as Stats from './stats.js';
 import * as ChartUtils from './chart.js';
 import * as Export from './export.js';
-import * as UI from './ui.js';
 import * as Auth from './auth.js';
 import * as Share from './share.js';
+
+// Import theme utils
+import { getThemeColors, applyThemeToDocument, getSavedTheme } from './utils/theme-utils.js';
 
 // Import components
 import Login from './components/Login.jsx';
 import ShareModal from './components/ShareModal.jsx';
 import ViewMode from './components/ViewMode.jsx';
+import Header from './components/Header.jsx';
+
+// Import card components
+import SettingsCard from './components/cards/SettingsCard.jsx';
+import ChartCard from './components/cards/ChartCard.jsx';
+import AddEntryCard from './components/cards/AddEntryCard.jsx';
+import HistoryCard from './components/cards/HistoryCard.jsx';
+import SummaryCard from './components/cards/SummaryCard.jsx';
+import ForecastCard from './components/cards/ForecastCard.jsx';
+import AveragesCard from './components/cards/AveragesCard.jsx';
+import DistributionCard from './components/cards/DistributionCard.jsx';
+import DataManagementCard from './components/cards/DataManagementCard.jsx';
 
 // Dynamically import ApexCharts with no SSR to avoid hydration issues
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -60,8 +71,8 @@ export default function WeightTracker() {
     const newTheme = theme === "dark" ? "light" : "dark";
     setTheme(newTheme);
     
-    // Always save theme preference to localStorage
-    localStorage.setItem("theme", newTheme);
+    // Apply theme changes using utility function
+    applyThemeToDocument(newTheme);
     
     // If in view mode, update the viewData theme too
     if (viewMode && viewData) {
@@ -70,13 +81,6 @@ export default function WeightTracker() {
         theme: newTheme
       };
       setViewData(updatedViewData);
-      
-      // Directly apply theme to document
-      if (newTheme === "dark") {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-      }
     }
   };
   
@@ -86,6 +90,41 @@ export default function WeightTracker() {
     setIsClient(true);
     
     try {
+      // Check for view parameter in URL (for shared links)
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      
+      if (viewParam) {
+        console.log("Shared view detected:", viewParam);
+        setViewMode(true);
+        
+        // Try to load the shared data
+        Share.loadSharedView(viewParam)
+          .then(result => {
+            if (result.success) {
+              setViewData(result.data);
+              // Set theme from shared data
+              if (result.data.theme) {
+                setTheme(result.data.theme);
+              }
+            } else {
+              toast.error(result.message || "Error loading shared data");
+              console.error("Error loading shared view:", result.message);
+            }
+          })
+          .catch(error => {
+            console.error("Error loading shared view:", error);
+            toast.error("Error loading shared data");
+          })
+          .finally(() => {
+            // Always set loading to false, even on error
+            setForceRender(prev => !prev);
+          });
+        
+        return; // Skip the rest of the initialization if in view mode
+      }
+      
+      // Normal app initialization (only if not in view mode)
       // Check if user is already logged in
       const existingUser = Auth.checkExistingLogin();
       if (existingUser) {
@@ -120,10 +159,8 @@ export default function WeightTracker() {
       setDate(dateFormat(new Date(), "yyyy-MM-dd"));
       
       // Load theme preference
-      const savedTheme = localStorage.getItem("theme");
-      if (savedTheme) {
-        setTheme(savedTheme);
-      }
+      const savedTheme = getSavedTheme();
+      setTheme(savedTheme);
       
       console.log("Initial data loading complete!");
     } catch (error) {
@@ -134,16 +171,7 @@ export default function WeightTracker() {
   // Apply theme to document
   useEffect(() => {
     if (!isClient) return;
-    
-    // Save theme preference
-    localStorage.setItem("theme", theme);
-    
-    // Apply theme to document
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    applyThemeToDocument(theme);
   }, [theme, isClient]);
 
   // Save entries to localStorage when they change
@@ -276,7 +304,7 @@ export default function WeightTracker() {
     toast.success("Entry deleted");
   };
 
-  // Use the UI module's function to get trend icons
+  // Get trend icons for displaying weight changes
   const getTrendIcon = (value) => {
     if (!value || value === 0) return <Minus className={`h-4 w-4 ${colors.textMuted}`} />;
     return value < 0 ? 
@@ -608,15 +636,29 @@ export default function WeightTracker() {
     console.log("Demo permalink created successfully");
   };
 
-  // Show login screen if not logged in
-  if (showLoginForm) {
-    return <Login onLogin={handleUserLogin} theme={theme} toggleTheme={toggleTheme} />;
+  // Exit shared view mode
+  const handleExitViewMode = () => {
+    setViewMode(false);
+    setViewData(null);
+    window.history.pushState({}, '', '/');
+  };
+  
+  // Get theme colors
+  const colors = getThemeColors(theme);
+  
+  // If login form is showing, render that
+  if (showLoginForm && !viewMode) {
+    return (
+      <div className={`min-h-screen ${colors.bg} flex items-center justify-center p-4`}>
+        <Login onLogin={handleUserLogin} theme={theme} toggleTheme={toggleTheme} />
+      </div>
+    );
   }
 
   // If in view mode, render the ViewMode component
   if (viewMode && viewData) {
     return (
-      <ViewMode 
+      <ViewMode
         entries={viewData.entries}
         startWeight={viewData.startWeight}
         goalWeight={viewData.goalWeight}
@@ -628,22 +670,24 @@ export default function WeightTracker() {
       />
     );
   }
-
-  // Color scheme based on theme
-  const colors = {
-    bg: theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#F3EAD3]',
-    cardBg: theme === 'dark' ? 'bg-[#313338]' : 'bg-[#EAE4CA]',
-    border: theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]',
-    text: theme === 'dark' ? 'text-[#e3e5e8]' : 'text-[#5C6A72]',
-    textMuted: theme === 'dark' ? 'text-[#b5bac1]' : 'text-[#829181]',
-    buttonBgPrimary: theme === 'dark' ? 'bg-[#5865f2] hover:bg-[#4752c4]' : 'bg-[#8DA101] hover:bg-[#798901]',
-    buttonBgSecondary: theme === 'dark' ? 'bg-[#4f545c] hover:bg-[#5d6269]' : 'bg-[#939F91] hover:bg-[#8A948C]',
-    buttonBgDanger: theme === 'dark' ? 'bg-[#ed4245] hover:bg-[#eb2c30]' : 'bg-[#F85552] hover:bg-[#e04b48]',
-    inputBg: theme === 'dark' ? 'bg-[#1e1f22]' : 'bg-[#E5DFC5]',
-    blockBg: theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]',
-    positive: theme === 'dark' ? 'text-[#57f287]' : 'text-[#126134]',
-    negative: theme === 'dark' ? 'text-[#ed4245]' : 'text-[#F85552]',
-  };
+  
+  // If in view mode but data is still loading
+  if (viewMode && !viewData) {
+    return (
+      <div className={`min-h-screen ${colors.bg} ${colors.text} flex items-center justify-center p-4`}>
+        <div className="text-center">
+          <h1 className="text-xl font-semibold mb-4">Loading Shared Data...</h1>
+          <p className="opacity-70 mb-4">Please wait while we load the shared weight tracker.</p>
+          <button
+            onClick={handleExitViewMode}
+            className={`${colors.buttonBgPrimary} px-4 py-2 rounded-md text-white`}
+          >
+            Return to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Main UI return
   return (
@@ -671,710 +715,103 @@ export default function WeightTracker() {
       
       <div className="max-w-6xl mx-auto">
         {/* Header with user info and controls */}
-        <div className={`flex justify-between items-center mb-4 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
-          <div className="flex items-center gap-1">
-            <h2 className={`text-xl sm:text-2xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
-              Weight Tracker
-            </h2>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center space-x-2 w-full sm:w-auto justify-center sm:justify-end">
-              <span className="text-sm mr-2">{currentUser}</span>
-              {/* Add Share Button with Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowShareDropdown(!showShareDropdown)}
-                  className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
-                  title="Share your progress"
-                >
-                  <Share2 size={16} className="text-white" />
-                </button>
-                
-                {showShareDropdown && (
-                  <div className={`absolute right-0 top-full mt-1 w-48 rounded-md shadow-lg ${colors.cardBg} z-10 border ${colors.border}`}>
-                    <div className="rounded-md">
-                      <div className="py-1">
-                        <button
-                          onClick={() => handleShare(false)}
-                          className={`block px-4 py-2 text-sm ${colors.text} w-full text-left hover:bg-opacity-20 hover:bg-gray-100`}
-                          disabled={isSharingInProgress}
-                        >
-                          {isSharingInProgress ? 'Creating Share...' : 'Create One-time Share'}
-                        </button>
-                        <button
-                          onClick={() => handleShare(true)}
-                          className={`block px-4 py-2 text-sm ${colors.text} w-full text-left hover:bg-opacity-20 hover:bg-gray-100`}
-                          disabled={isSharingInProgress}
-                        >
-                          {isSharingInProgress ? 'Creating Share...' : 'Create Permalink (overrides previous)'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={toggleTheme}
-                className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
-                title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              >
-                {theme === 'dark' ? (
-                  <Sun size={16} className="text-white" />
-                ) : (
-                  <Moon size={16} className="text-white" />
-                )}
-              </button>
-              <button 
-                onClick={handleUserLogout} 
-                className={`p-2 rounded-full ${theme === 'dark' ? 'bg-[#ed4245] hover:bg-[#eb2c30]' : 'bg-[#F85552] hover:bg-[#e04b48]'}`}
-                title="Log Out"
-              >
-                <LogOut size={16} className="text-white" />
-              </button>
-            </div>
-          </div>
-        </div>
+        <Header 
+          currentUser={currentUser}
+          theme={theme}
+          colors={colors}
+          isSharingInProgress={isSharingInProgress}
+          toggleTheme={toggleTheme}
+          handleUserLogout={handleUserLogout}
+          handleShare={handleShare}
+        />
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Settings Card - Top Left */}
-          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
-            <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-              <CardTitle className={`${colors.text} text-lg`}>Settings</CardTitle>
-            </CardHeader>
-            <CardContent className={`py-6 px-6`}>
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-[#b5bac1] mb-2 pl-1">Start Weight (kg)</label>
-                  <div className="flex space-x-2">
-                    <Input
-                      value={startWeight}
-                      onChange={e => setStartWeight(e.target.value)}
-                      type="number"
-                      step="0.1"
-                      placeholder="e.g. 80.5"
-                      className={`${colors.inputBg} h-10 pl-3 rounded-md ${colors.text}`}
-                    />
-                    <button
-                      onClick={handleSetStart}
-                      className={`${colors.buttonBgPrimary} px-4 py-2 h-10 rounded-md flex items-center space-x-1`}
-                    >
-                      <Save className="h-4 w-4 mr-1 text-white" />
-                      <span className="text-white">Set</span>
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#b5bac1] mb-2 pl-1">Goal Weight (kg)</label>
-                  <div className="flex space-x-2">
-                    <Input
-                      value={goalWeight}
-                      onChange={e => setGoalWeight(e.target.value)}
-                      type="number"
-                      step="0.1"
-                      placeholder="e.g. 75.0"
-                      className={`${colors.inputBg} h-10 pl-3 rounded-md ${colors.text}`}
-                    />
-                    <button
-                      onClick={handleSetGoal}
-                      className={`${colors.buttonBgPrimary} px-4 py-2 h-10 rounded-md flex items-center space-x-1`}
-                    >
-                      <Save className="h-4 w-4 mr-1 text-white" />
-                      <span className="text-white">Set</span>
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#b5bac1] mb-2 pl-1">Height (cm)</label>
-                  <div className="flex space-x-2">
-                    <Input
-                      value={height}
-                      onChange={e => setHeight(e.target.value)}
-                      type="number"
-                      step="0.1"
-                      placeholder="e.g. 175"
-                      className={`${colors.inputBg} h-10 pl-3 rounded-md ${colors.text}`}
-                    />
-                    <button
-                      onClick={handleSetHeight}
-                      className={`${colors.buttonBgPrimary} px-4 py-2 h-10 rounded-md flex items-center space-x-1`}
-                    >
-                      <Save className="h-4 w-4 mr-1 text-white" />
-                      <span className="text-white">Set</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <SettingsCard
+            colors={colors}
+            startWeight={startWeight}
+            goalWeight={goalWeight}
+            height={height}
+            setStartWeight={setStartWeight}
+            setGoalWeight={setGoalWeight}
+            setHeight={setHeight}
+          />
 
           {/* Chart Card - Top Right */}
-          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
-            <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-              <CardTitle className={`${colors.text} text-lg`}>Weight Chart</CardTitle>
-            </CardHeader>
-            <CardContent className={`py-6 px-6`}>
-              <div className="h-[300px]">
-                {entries.length > 0 ? (
-                  typeof window !== 'undefined' ? 
-                    <Chart 
-                      options={chartConfig.options} 
-                      series={chartConfig.series} 
-                      type="area" 
-                      height={300}
-                    />
-                  : <div>Loading chart...</div>
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-[#b5bac1]">
-                    <p className="mb-2">No data available yet.</p>
-                    <button 
-                      onClick={() => {
-                        const input = document.querySelector('input[type="number"]');
-                        if (input) input.focus();
-                      }} 
-                      className={`${colors.buttonBgPrimary} px-4 py-2 rounded-md border border-[#4752c4]`}
-                    >
-                      Add Your First Weight
-                    </button>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <ChartCard 
+            colors={colors}
+            entries={entries}
+            chartConfig={chartConfig}
+          />
 
           {/* Add New Entry Card - Bottom Left */}
-          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
-            <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-              <CardTitle className={`${colors.text} text-lg`}>Add New Entry</CardTitle>
-            </CardHeader>
-            <CardContent className={`py-6 px-6`}>
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-[#b5bac1] mb-2 pl-1">Date</label>
-                  <Input
-                    type="date"
-                    value={date}
-                    onChange={e => setDate(e.target.value)}
-                    className={`${colors.inputBg} h-10 pl-3 pr-8 rounded-md ${colors.text}`}
-                    style={{ 
-                      backgroundPosition: "calc(100% - 8px) center",
-                      backgroundSize: "20px"
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#b5bac1] mb-2 pl-1">Weight (kg)</label>
-                  <div className="flex space-x-2">
-                    <Input
-                      value={weight}
-                      onChange={e => setWeight(e.target.value)}
-                      type="number"
-                      step="0.1"
-                      placeholder="Enter weight"
-                      className={`${colors.inputBg} h-10 pl-3 rounded-md ${colors.text}`}
-                    />
-                    <button 
-                      onClick={handleAdd} 
-                      className={`${colors.buttonBgPrimary} px-4 py-2 h-10 rounded-md border border-[#4752c4]`}
-                    >
-                      <span className="text-white">Add</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Import from file section */}
-                <div className="mt-4 pt-4 border-t border-[#1e1f22]">
-                  <label className="block text-sm font-medium text-[#b5bac1] mb-2 pl-1">
-                    Import from Excel/CSV
-                  </label>
-                  <input 
-                    type="file" 
-                    accept=".csv,.xls,.xlsx"
-                    onChange={handleImport}
-                    className={`${colors.inputBg} w-full text-sm ${colors.text} rounded-md
-                      file:mr-4 file:py-2 file:px-4 
-                      file:rounded-md file:border-0 
-                      file:text-sm file:font-semibold 
-                      ${theme === 'dark' 
-                        ? 'file:bg-[#404249] hover:file:bg-[#2b2d31]' 
-                        : 'file:bg-[#8DA101] hover:file:bg-[#798901]'} file:text-white`}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <AddEntryCard
+            colors={colors}
+            date={date}
+            setDate={setDate}
+            weight={weight}
+            setWeight={setWeight}
+            entries={entries}
+            setEntries={setEntries}
+            theme={theme}
+          />
 
           {/* Weight History Card - Bottom Right */}
-          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
-            <CardHeader className={`border-b ${colors.border} relative flex flex-row items-center justify-center pb-3 pt-4`}>
-              <div className="flex items-center">
-                <CardTitle className={`${colors.text} text-lg`}>Weight History</CardTitle>
-                <div className="text-sm ${theme === 'dark' ? 'text-[#57f287]' : 'text-[#126134]'} ml-2">({entries.length} entries)</div>
-              </div>
-              <button
-                onClick={exportToCsv}
-                disabled={entries.length === 0}
-                className={`${colors.buttonBgPrimary} px-3 py-1 text-xs rounded-md flex items-center absolute right-4
-                  ${entries.length > 0 
-                    ? 'bg-[#404249] hover:bg-[#4752c4] text-white cursor-pointer' 
-                    : 'bg-[#36373d] text-[#72767d] cursor-not-allowed'}`}
-                title="Export to CSV"
-              >
-                <Download size={14} className="mr-1 text-white" />
-                <span className="text-white">Export</span>
-              </button>
-            </CardHeader>
-            <CardContent className={`py-6 px-6 overflow-hidden`}>
-              <div style={{ maxHeight: '350px', overflow: 'auto' }} className="scrollbar-hide">
-                {entries.length > 0 ? (
-                  <div className="relative">
-                    <table className="w-full">
-                      <thead style={{ position: 'sticky', top: 0, zIndex: 10 }} className={`${theme === 'dark' ? 'bg-[#313338]' : 'bg-[#EAE4CA]'}`}>
-                        <tr>
-                          <th className={`text-left py-2 px-4 font-medium ${colors.text} border-b ${theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'}`} style={{ width: '150px' }}>Date</th>
-                          <th className={`text-left py-2 px-4 font-medium ${colors.text} border-b ${theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'}`}>Day</th>
-                          <th className={`text-left py-2 px-4 font-medium ${colors.text} border-b ${theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'}`}>Weight (kg)</th>
-                          <th className={`text-left py-2 px-4 font-medium ${colors.text} border-b ${theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'}`}>Change</th>
-                          <th className={`text-right py-2 px-4 font-medium ${colors.text} border-b ${theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'}`}>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {formattedEntries.map((entry, index) => {
-                          const prevEntry = formattedEntries[index + 1];
-                          const change = prevEntry ? (entry.weight - prevEntry.weight).toFixed(1) : "--";
-                          const changeColor = change !== "--" ? 
-                            (parseFloat(change) < 0 ? 
-                              theme === 'dark' ? "text-[#57f287]" : "text-[#126134]"
-                              : parseFloat(change) > 0 ? "text-[#ed4245]" : "") 
-                            : "";
-                          
-                          return (
-                            <tr key={entry.id || entry.date} className={`border-b ${theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]'}`}>
-                              <td className={`text-left py-2 px-4 ${colors.text}`}>{entry.dateFormatted}</td>
-                              <td className={`text-left py-2 px-4 ${colors.text}`}>{entry.dayFormatted}</td>
-                              <td className={`text-left py-2 px-4 ${colors.text} font-medium`}>{entry.weight}</td>
-                              <td className={`text-left py-2 px-4 ${changeColor} flex items-center`}>
-                                {change !== "--" ? (
-                                  <>
-                                    <span>{change > 0 ? "+" + change : change}</span>
-                                    <span className="ml-1">{getTrendIcon(parseFloat(change))}</span>
-                                  </>
-                                ) : "--"}
-                              </td>
-                              <td className="text-right py-2 px-4">
-                                <button 
-                                  onClick={() => handleDelete(entry.id)}
-                                  className={`${theme === 'dark' ? 'bg-[#ed4245] hover:bg-[#eb2c30]' : 'bg-[#8DA101] hover:bg-[#798901]'} inline-flex h-8 w-8 items-center justify-center rounded-md text-white`}
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-[#b5bac1]">
-                    <p>No entries yet. Add your first weight using the form.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <HistoryCard
+            colors={colors}
+            formattedEntries={formattedEntries}
+            entries={entries}
+            setEntries={setEntries}
+            theme={theme}
+          />
           
           {/* Summary Card - Spans full width on larger screens */}
           {entries.length > 0 && (
-            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden`}>
-              <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-                <CardTitle className={`${colors.text} text-lg`}>Summary</CardTitle>
-              </CardHeader>
-              <CardContent className={`py-6 px-6`}>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className={`${colors.blockBg} p-4 rounded-md`}>
-                    <div className="text-sm text-[#b5bac1] mb-1">Current</div>
-                    <div className={`text-xl font-bold ${colors.text}`}>{entries[0].weight} kg</div>
-                  </div>
-                  
-                  {goalWeight && (
-                    <div className={`${colors.blockBg} p-4 rounded-md`}>
-                      <div className="text-sm text-[#b5bac1] mb-1">Goal</div>
-                      <div className={`text-xl font-bold ${colors.text}`}>{goalWeight} kg</div>
-                    </div>
-                  )}
-                  
-                  {startWeight && entries.length > 0 && (
-                    <div className={`${colors.blockBg} p-4 rounded-md`}>
-                      <div className="text-sm text-[#b5bac1] mb-1">Total Change</div>
-                      <div className="flex items-center">
-                        <span className={`text-xl font-bold ${colors.text} mr-1`}>
-                          {(entries[0].weight - startWeight).toFixed(1)} kg
-                        </span>
-                        {getTrendIcon(entries[0].weight - startWeight)}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {entries.length > 1 && (
-                    <div className={`${colors.blockBg} p-4 rounded-md`}>
-                      <div className="text-sm text-[#b5bac1] mb-1">Last Change</div>
-                      <div className="flex items-center">
-                        <span className={`text-xl font-bold ${colors.text} mr-1`}>
-                          {(entries[0].weight - entries[1].weight).toFixed(1)} kg
-                        </span>
-                        {getTrendIcon(entries[0].weight - entries[1].weight)}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* BMI Card */}
-                  {height && entries.length > 0 && (
-                    <div className={`${colors.blockBg} p-4 rounded-md`}>
-                      <div className="text-sm text-[#b5bac1] mb-1">BMI</div>
-                      <div className={`text-xl font-bold ${colors.text}`}>{calculateBMI(entries[0].weight, height)}</div>
-                      <div className={`text-sm ${getBMICategory(calculateBMI(entries[0].weight, height)).color} mt-1`}>{getBMICategory(calculateBMI(entries[0].weight, height)).category}</div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <SummaryCard
+              colors={colors}
+              entries={entries}
+              startWeight={startWeight}
+              goalWeight={goalWeight}
+              height={height}
+              theme={theme}
+            />
           )}
           
-          {/* Forecast Card */}
-          {entries.length > 0 && goalWeight && sevenDayAvg.hasData && (
-            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2`}>
-              <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-                <CardTitle className={`${colors.text} text-lg`}>Forecast</CardTitle>
-              </CardHeader>
-              <CardContent className={`py-6 px-6`}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Weight Projection */}
-                  <div className={`${colors.blockBg} p-4 rounded-md`}>
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className={`${colors.text} text-lg font-medium`}>Weight Projection</h3>
-                    </div>
-                    
-                    {calculateForecast()?.isPossible ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className={`${colors.textMuted}`}>Current trend:</span>
-                          <span className={`${colors.text} font-medium`}>
-                            {sevenDayAvg.value > 0 ? "+" : ""}{sevenDayAvg.value} kg/day
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className={`${colors.textMuted}`}>Weekly rate:</span>
-                          <span className={`${colors.text} font-medium`}>{calculateForecast().weeklyRate} kg/week</span>
-                        </div>
-                        <div className="h-[1px] w-full bg-[#1e1f22] my-3"></div>
-                        <div className="flex items-center justify-between">
-                          <span className={`${colors.textMuted}`}>Current:</span>
-                          <span className={`${colors.text} font-medium`}>{entries[0].weight} kg</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className={`${colors.textMuted}`}>Goal:</span>
-                          <span className={`${colors.text} font-medium`}>{goalWeight} kg</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className={`${colors.textMuted}`}>Remaining:</span>
-                          <span className={`${colors.text} font-medium`}>
-                            {Math.abs(goalWeight - entries[0].weight).toFixed(1)} kg
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="py-2 text-[#ed4245]">
-                        {calculateForecast() ? calculateForecast().reason : "Insufficient data for projection"}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Target Date */}
-                  <div className={`${colors.blockBg} p-4 rounded-md`}>
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className={`${colors.text} text-lg font-medium`}>Target Date Estimation</h3>
-                      <Calendar size={20} className={`${colors.textMuted}`} />
-                    </div>
-                    
-                    {calculateForecast()?.isPossible ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className={`${colors.textMuted}`}>Estimated time to goal:</span>
-                          <span className={`${colors.text} font-medium`}>{calculateForecast().daysNeeded} days</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className={`${colors.textMuted}`}>Target date:</span>
-                          <span className={`${colors.text} font-medium`}>{calculateForecast().targetDateFormatted}</span>
-                        </div>
-                        
-                        <div className="mt-4 pt-4 border-t border-[#1e1f22]">
-                          <div className="flex items-center space-x-2 text-sm text-[#b5bac1]">
-                            <span>Today</span>
-                            <div className={`flex-1 h-[3px] ${theme === 'dark' ? 'bg-[#57f287]' : 'bg-[#8DA101]'} rounded-full relative`}>
-                              <div 
-                                className={`absolute -top-1 left-0 w-2 h-2 rounded-full ${theme === 'dark' ? 'bg-[#57f287]' : 'bg-[#8DA101]'}`}
-                                style={{ left: "0%" }}
-                              ></div>
-                              <div 
-                                className={`absolute -top-1 right-0 w-2 h-2 rounded-full ${theme === 'dark' ? 'bg-[#57f287]' : 'bg-[#8DA101]'}`}
-                                style={{ right: "0%" }}
-                              ></div>
-                            </div>
-                            <span>{calculateForecast().targetDateFormatted}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="py-2 text-center flex flex-col items-center space-y-4">
-                        <ArrowRight size={32} className={`${colors.textMuted}`} />
-                        <span className={`${colors.textMuted}`}>
-                          {calculateForecast() ? calculateForecast().reason : "Set a goal weight and establish a trend"}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Export Card */}
-          {entries.length > 0 && formattedEntries.length > 0 && (
-            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2`}>
-              <CardHeader className={`border-b ${colors.border} relative flex flex-row items-center justify-center pb-3 pt-4`}>
-                <CardTitle className={`${colors.text} text-lg`}>Data Management</CardTitle>
-                <button
-                  onClick={exportToCsv}
-                  className={`${colors.buttonBgPrimary} px-3 py-1 rounded-md flex items-center absolute right-8`}
-                >
-                  <Download className="h-4 w-4 mr-1 text-white" />
-                  <span className="text-white">Export CSV</span>
-                </button>
-              </CardHeader>
-              <CardContent className={`py-6 px-6`}>
-                <div className={`${colors.text}`}>
-                  <p>Your weight data is stored locally in your browser. You can export it as a CSV file for backup or analysis in other applications.</p>
-                  {formattedEntries.length > 1 ? (
-                    <div className={`mt-4 ${colors.blockBg} p-4 rounded-md`}>
-                      <div className="text-sm">
-                        <span className={`${colors.text} font-medium`}>Current data summary:</span>
-                        <ul className="mt-2 space-y-1 text-sm ${colors.text}">
-                          <li>• Total entries: {entries.length}</li>
-                          <li>• Date range: {dateFormat(formattedEntries[formattedEntries.length-1].dateObj, "MMM d, yyyy")} to {dateFormat(formattedEntries[0].dateObj, "MMM d, yyyy")}</li>
-                          <li>• Weight range: {Math.min(...formattedEntries.map(e => e.weight))} kg to {Math.max(...formattedEntries.map(e => e.weight))} kg</li>
-                        </ul>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={`mt-4 ${colors.blockBg} p-4 rounded-md`}>
-                      <div className="text-sm">
-                        <span className={`${colors.text} font-medium`}>Current data summary:</span>
-                        <ul className="mt-2 space-y-1 text-sm ${colors.text}">
-                          <li>• Total entries: {entries.length}</li>
-                        </ul>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Statistics Card with Average Tables */}
-          {entries.length > 1 && (
-            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2`}>
-              <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-                <CardTitle className={`${colors.text} text-lg`}>Weight Averages</CardTitle>
-              </CardHeader>
-              <CardContent className={`py-6 px-6`}>
-                <div className="overflow-x-auto">
-                  <Table className="w-full">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Period</TableHead>
-                        <TableHead>Range</TableHead>
-                        <TableHead>Starting</TableHead>
-                        <TableHead>Current</TableHead>
-                        <TableHead>Change</TableHead>
-                        <TableHead>Daily Avg</TableHead>
-                        <TableHead>Trend</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sevenDayAvg.hasData && (
-                        <TableRow>
-                          <TableCell className={`${colors.text} font-medium`}>7 Days</TableCell>
-                          <TableCell>{sevenDayAvg.startDate} - {sevenDayAvg.endDate}</TableCell>
-                          <TableCell>{sevenDayAvg.startWeight} kg</TableCell>
-                          <TableCell>{sevenDayAvg.endWeight} kg</TableCell>
-                          <TableCell 
-                            className={`${parseFloat(sevenDayAvg.totalChange) < 0 ? colors.positive : parseFloat(sevenDayAvg.totalChange) > 0 ? colors.negative : ""}`}
-                          >
-                            {sevenDayAvg.totalChange > 0 ? "+" : ""}{sevenDayAvg.totalChange} kg
-                          </TableCell>
-                          <TableCell>
-                            {sevenDayAvg.value > 0 ? "+" : ""}{sevenDayAvg.value} kg/day
-                          </TableCell>
-                          <TableCell className="flex items-center">
-                            {getTrendIcon(parseFloat(sevenDayAvg.value))}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      
-                      {fourteenDayAvg.hasData && (
-                        <TableRow>
-                          <TableCell className={`${colors.text} font-medium`}>14 Days</TableCell>
-                          <TableCell>{fourteenDayAvg.startDate} - {fourteenDayAvg.endDate}</TableCell>
-                          <TableCell>{fourteenDayAvg.startWeight} kg</TableCell>
-                          <TableCell>{fourteenDayAvg.endWeight} kg</TableCell>
-                          <TableCell 
-                            className={`${parseFloat(fourteenDayAvg.totalChange) < 0 ? colors.positive : parseFloat(fourteenDayAvg.totalChange) > 0 ? colors.negative : ""}`}
-                          >
-                            {fourteenDayAvg.totalChange > 0 ? "+" : ""}{fourteenDayAvg.totalChange} kg
-                          </TableCell>
-                          <TableCell>
-                            {fourteenDayAvg.value > 0 ? "+" : ""}{fourteenDayAvg.value} kg/day
-                          </TableCell>
-                          <TableCell className="flex items-center">
-                            {getTrendIcon(parseFloat(fourteenDayAvg.value))}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      
-                      {thirtyDayAvg.hasData && (
-                        <TableRow>
-                          <TableCell className={`${colors.text} font-medium`}>30 Days</TableCell>
-                          <TableCell>{thirtyDayAvg.startDate} - {thirtyDayAvg.endDate}</TableCell>
-                          <TableCell>{thirtyDayAvg.startWeight} kg</TableCell>
-                          <TableCell>{thirtyDayAvg.endWeight} kg</TableCell>
-                          <TableCell 
-                            className={`${parseFloat(thirtyDayAvg.totalChange) < 0 ? colors.positive : parseFloat(thirtyDayAvg.totalChange) > 0 ? colors.negative : ""}`}
-                          >
-                            {thirtyDayAvg.totalChange > 0 ? "+" : ""}{thirtyDayAvg.totalChange} kg
-                          </TableCell>
-                          <TableCell>
-                            {thirtyDayAvg.value > 0 ? "+" : ""}{thirtyDayAvg.value} kg/day
-                          </TableCell>
-                          <TableCell className="flex items-center">
-                            {getTrendIcon(parseFloat(thirtyDayAvg.value))}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      
-                      {!sevenDayAvg.hasData && !fourteenDayAvg.hasData && !thirtyDayAvg.hasData && (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center py-4 text-[#b5bac1]">
-                            Need more data points for averages. Add entries over time to see trends.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Weight Distribution Card */}
-          {entries.length >= 5 && (
-            <Card className={`${colors.cardBg} ${colors.border} shadow-xl md:col-span-2 rounded-lg overflow-hidden mt-2`}>
-              <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
-                <CardTitle className={`${colors.text} text-lg`}>Weight Distribution</CardTitle>
-              </CardHeader>
-              <CardContent className={`py-6 px-6`}>
-                <div className="h-[200px]">
-                  {typeof window !== 'undefined' && (
-                    <Chart 
-                      options={{
-                        chart: {
-                          type: 'bar',
-                          height: 200,
-                          toolbar: {
-                            show: false,
-                          },
-                          background: 'transparent',
-                          fontFamily: 'Inter, sans-serif',
-                        },
-                        colors: theme === 'dark' ? ['#5865f2'] : ['#8DA101'],
-                        plotOptions: {
-                          bar: {
-                            horizontal: false,
-                            columnWidth: '70%',
-                            borderRadius: 4,
-                            distributed: true,
-                          }
-                        },
-                        dataLabels: {
-                          enabled: false
-                        },
-                        grid: {
-                          show: false,  // Hide all grid lines
-                          borderColor: '#1e1f22',
-                          strokeDashArray: 3,
-                          padding: {
-                            left: 0,
-                            right: 0
-                          },
-                          xaxis: {
-                            lines: {
-                              show: false
-                            }
-                          },
-                          yaxis: {
-                            lines: {
-                              show: false
-                            }
-                          }
-                        },
-                        xaxis: {
-                          categories: getWeightRanges(),
-                          labels: {
-                            style: {
-                              colors: '#b5bac1',
-                            },
-                            rotate: -45,
-                            rotateAlways: false,
-                            hideOverlappingLabels: true,
-                            trim: true,
-                          },
-                          axisBorder: {
-                            show: false
-                          },
-                          axisTicks: {
-                            show: false
-                          }
-                        },
-                        yaxis: {
-                          title: {
-                            text: 'Days',
-                            style: {
-                              color: '#b5bac1'
-                            }
-                          },
-                          labels: {
-                            style: {
-                              colors: '#b5bac1',
-                            },
-                          },
-                        },
-                        tooltip: {
-                          theme: theme === 'dark' ? 'dark' : 'light',
-                          y: {
-                            formatter: (value) => `${value} days`
-                          }
-                        }
-                      }} 
-                      series={[{
-                        name: 'Days at Weight',
-                        data: getWeightDistribution()
-                      }]} 
-                      type="bar" 
-                      height={200}
-                    />
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+          {/* Additional Cards */}
+          {entries.length > 0 && (
+            <>
+              {/* Forecast Card */}
+              <ForecastCard
+                colors={colors}
+                formattedEntries={formattedEntries}
+                goalWeight={goalWeight}
+                theme={theme}
+              />
+              
+              {/* Averages Card */}
+              <AveragesCard
+                colors={colors}
+                formattedEntries={formattedEntries}
+                theme={theme}
+              />
+              
+              {/* Distribution Card */}
+              <DistributionCard
+                colors={colors}
+                entries={entries}
+                theme={theme}
+              />
+              
+              {/* Data Management Card - Spans full width */}
+              <div className="md:col-span-2">
+                <DataManagementCard
+                  colors={colors}
+                  entries={entries}
+                  setEntries={setEntries}
+                  theme={theme}
+                />
+              </div>
+            </>
           )}
         </div>
       </div>
