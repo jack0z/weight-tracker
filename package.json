@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build && node scripts/postbuild.js",
+    "export": "next export",
     "start": "next start",
     "test-db": "node scripts/test-db-connection.js",
-    "init-db": "node scripts/init-database.js"
+    "init-db": "node scripts/init-database.js",
+    "postinstall": "node -e \"try { const fs = require('fs'); if (fs.existsSync('./app')) { fs.rmSync('./app', { recursive: true, force: true }); console.log('App directory removed to prevent conflicts'); } if (!fs.existsSync('./styles')) { fs.mkdirSync('./styles', { recursive: true }); console.log('Styles directory created'); } } catch (e) { console.error('Error in postinstall:', e); }\""
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.0.2",

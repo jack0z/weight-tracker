@@ -16,6 +16,9 @@ const nextConfig = {
     missingSuspenseWithCSRBailout: false,
     appDir: false
   },
+  // Completely disable app directory scanning
+  useFileSystemPublicRoutes: true,
+  pageExtensions: ['js', 'jsx'],
   // Ensure _redirects file is copied to the output directory
   async redirects() {
     return [

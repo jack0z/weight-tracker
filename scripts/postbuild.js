@@ -1,37 +1,63 @@
 const fs = require('fs');
 const path = require('path');
 
-// Create _redirects file in the out directory
-const redirectsContent = `
+try {
+  console.log('Running post-build tasks...');
+  
+  const outDir = path.join(process.cwd(), 'out');
+  
+  // Create _redirects file
+  const redirectsContent = `
 # Netlify redirects for SPA routing
 /api/*  /.netlify/functions/:splat  200
 /*      /index.html                 200!
 `;
-
-try {
-  // Ensure the output directory exists
-  const outDir = path.join(process.cwd(), 'out');
-  if (!fs.existsSync(outDir)) {
-    console.error('Output directory "out" does not exist');
-    process.exit(1);
-  }
-
-  // Write the _redirects file
   fs.writeFileSync(path.join(outDir, '_redirects'), redirectsContent.trim());
-  console.log('Created _redirects file in the output directory');
+  console.log('Created _redirects file');
+  
+  // Create _headers file
+  const headersContent = `
+# Headers for all files
+/*
+  X-Frame-Options: DENY
+  X-XSS-Protection: 1; mode=block
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
 
+# JS and CSS specific headers
+/*.js
+  Content-Type: application/javascript
+
+/*.css
+  Content-Type: text/css
+
+# API headers
+/api/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization
+`;
+  fs.writeFileSync(path.join(outDir, '_headers'), headersContent.trim());
+  console.log('Created _headers file');
+  
+  // Ensure index.html is present in subdirectories for SPA routing
+  const dirs = fs.readdirSync(outDir, { withFileTypes: true })
+    .filter(dirent => dirent.isDirectory())
+    .map(dirent => dirent.name);
+  
+  for (const dir of dirs) {
+    const indexPath = path.join(outDir, dir, 'index.html');
+    if (!fs.existsSync(indexPath)) {
+      fs.copyFileSync(path.join(outDir, 'index.html'), indexPath);
+      console.log(`Copied index.html to /${dir}/`);
+    }
+  }
+  
   // Copy the netlify.toml file if it exists
   const netlifyTomlPath = path.join(process.cwd(), 'netlify.toml');
   if (fs.existsSync(netlifyTomlPath)) {
     fs.copyFileSync(netlifyTomlPath, path.join(outDir, 'netlify.toml'));
     console.log('Copied netlify.toml to the output directory');
-  }
-
-  // Copy the _headers file if it exists
-  const headersPath = path.join(process.cwd(), 'public', '_headers');
-  if (fs.existsSync(headersPath)) {
-    fs.copyFileSync(headersPath, path.join(outDir, '_headers'));
-    console.log('Copied _headers to the output directory');
   }
 
   // Check if we have a 404.html and copy from index.html if not
