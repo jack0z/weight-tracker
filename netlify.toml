@@ -13,7 +13,7 @@
 
 # Environment variable inheritance
 [build.environment]
-  NODE_VERSION = "18.x"
+  NODE_VERSION = "18.17.0"
   # Set a flag to indicate we're using MongoDB by default
   USE_LOCALSTORAGE_FALLBACK = "false"
 
