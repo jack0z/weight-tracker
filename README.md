@@ -1,6 +1,6 @@
 # Weight Tracker
 
-A simple yet powerful weight tracking application built with React and ApexCharts. Track your weight over time, visualize trends, and forecast future progress.
+A powerful weight tracking application built with React and ApexCharts. Track your weight over time, visualize trends, and forecast future progress. Now with MongoDB integration for cloud storage!
 
 ## Features
 
@@ -11,12 +11,14 @@ A simple yet powerful weight tracking application built with React and ApexChart
 - **BMI Calculator**: Calculate and categorize your BMI based on your height and weight
 - **Goal Forecasting**: Predict when you'll reach your goal weight based on current trends
 - **Data Management**: Export your data to CSV for backup or further analysis
+- **MongoDB Integration**: Store your weight data securely in the cloud (optional)
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js and npm
+- MongoDB Atlas account (optional, for cloud storage)
 
 ### Installation
 
@@ -31,12 +33,22 @@ A simple yet powerful weight tracking application built with React and ApexChart
    npm install
    ```
 
-3. Start the development server
+3. Set up environment variables (for MongoDB integration)
    ```bash
+   cp .env.example .env
+   ```
+   Then edit the `.env` file with your MongoDB connection string.
+
+4. Start the development server
+   ```bash
+   # For local-only storage version
    npm run dev
+   
+   # For MongoDB integration (requires MongoDB connection)
+   npm run netlify:dev
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ## Usage
 
@@ -45,12 +57,41 @@ A simple yet powerful weight tracking application built with React and ApexChart
 3. View your weight history, trends, and statistics in the various cards
 4. Export your data as needed for backup
 
+### MongoDB Integration
+
+The application offers two modes:
+- **Local Storage**: The default mode that stores data in your browser (original version)
+- **MongoDB**: Cloud storage mode that persists your data across devices
+
+To use the MongoDB integration:
+
+1. Create a free MongoDB Atlas account at [https://www.mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas)
+2. Set up a new cluster and database
+3. Add your MongoDB connection string to the `.env` file
+4. Test your database connection:
+   ```bash
+   npm run test-db
+   ```
+5. Initialize the database with sample data (optional):
+   ```bash
+   npm run init-db
+   ```
+6. Run the application with Netlify Dev:
+   ```bash
+   npm run netlify:dev
+   ```
+7. Click the "Try MongoDB Version" button in the app to switch to cloud storage mode
+
 ## Technologies Used
 
 - React
+- Next.js
+- MongoDB and Mongoose for cloud data storage
+- Netlify Functions for serverless API endpoints
 - ApexCharts for data visualization
 - date-fns for date manipulation
-- localStorage for data persistence
+- Tailwind CSS and DaisyUI for styling
+- localStorage for local data persistence
 
 ## License
 

@@ -5,10 +5,13 @@
   "main": "index.js",
   "scripts": {
     "dev": "next dev",
-    "build": "next build || (echo 'Build failed, retrying without postcss config' && rm -f postcss.config.js && next build)",
+    "build": "next build && node scripts/postbuild.js",
+    "start": "next start",
+    "lint": "next lint",
     "postbuild": "node scripts/postbuild.js",
     "export": "next export",
-    "start": "next start",
+    "netlify:deploy": "netlify deploy --prod",
+    "netlify:dev": "netlify dev",
     "test-db": "node scripts/test-db-connection.js",
     "init-db": "node scripts/init-database.js",
     "postinstall": "node -e \"try { const fs = require('fs'); if (fs.existsSync('./app')) { fs.rmSync('./app', { recursive: true, force: true }); console.log('App directory removed to prevent conflicts'); } if (!fs.existsSync('./styles')) { fs.mkdirSync('./styles', { recursive: true }); console.log('Styles directory created'); } } catch (e) { console.error('Error in postinstall:', e); }\""

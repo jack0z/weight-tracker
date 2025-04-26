@@ -1,9 +1,10 @@
 import { Toaster } from "sonner";
 import '../styles/globals.css';
+import { WeightProvider } from '../contexts/WeightContext';
 
 function MyApp({ Component, pageProps }) {
   return (
-    <>
+    <WeightProvider>
       <Component {...pageProps} />
       <Toaster 
         position="top-right" 
@@ -22,7 +23,7 @@ function MyApp({ Component, pageProps }) {
           }
         }}
       />
-    </>
+    </WeightProvider>
   );
 }
 

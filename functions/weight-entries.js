@@ -1,300 +1,165 @@
-const { connectToDatabase } = require('./database/connection');
-require('./database/models/WeightEntry'); // Make sure the model is loaded
 const mongoose = require('mongoose');
-const WeightEntry = mongoose.model('WeightEntry');
+const { dbConnect } = require('./database/db-connect');
+const WeightEntry = require('./database/models/WeightEntry');
 
-/**
- * Handler for Netlify serverless function
- * @param {Object} event - The Netlify event object
- * @param {Object} context - The Netlify context object
- * @returns {Promise<Object>} The response object
- */
-exports.handler = async (event, context) => {
-  // Set CORS headers for all responses
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Content-Type': 'application/json'
-  };
-
-  // Handle preflight OPTIONS requests
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 204,
-      headers,
-      body: ''
-    };
-  }
-
-  // Verify authentication (simplified for now)
-  const userId = event.headers.authorization || 'default-user';
-  
+// Helper to parse the request body
+const parseBody = (body) => {
   try {
-    // Connect to the database
-    await connectToDatabase();
-    
-    // Route based on HTTP method
-    switch (event.httpMethod) {
-      case 'GET':
-        return await getEntries(userId, event, headers);
-      case 'POST':
-        return await createEntry(userId, event, headers);
-      case 'PUT':
-        return await updateEntry(userId, event, headers);
-      case 'DELETE':
-        return await deleteEntry(userId, event, headers);
-      default:
-        return {
-          statusCode: 405,
-          headers,
-          body: JSON.stringify({ message: 'Method not allowed' })
-        };
-    }
+    return typeof body === 'string' ? JSON.parse(body) : body;
   } catch (error) {
-    console.error('Error in weight-entries function:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Internal server error', error: error.message })
-    };
+    return null;
   }
 };
 
-/**
- * Get weight entries for a user
- * @param {string} userId - The user ID
- * @param {Object} event - The Netlify event object
- * @param {Object} headers - Response headers
- * @returns {Promise<Object>} The response object
- */
-async function getEntries(userId, event, headers) {
-  try {
-    // Parse query parameters
-    const queryParams = event.queryStringParameters || {};
-    const limit = parseInt(queryParams.limit) || 100;
-    const skip = parseInt(queryParams.skip) || 0;
-    
-    // Prepare find query with userId
-    const query = { userId };
-    
-    // Add date range filter if provided
-    if (queryParams.startDate) {
-      query.date = query.date || {};
-      query.date.$gte = new Date(queryParams.startDate);
-    }
-    
-    if (queryParams.endDate) {
-      query.date = query.date || {};
-      query.date.$lte = new Date(queryParams.endDate);
-    }
+// Response helper
+const response = (statusCode, body) => {
+  return {
+    statusCode,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+    },
+    body: JSON.stringify(body)
+  };
+};
 
-    // Get total count for pagination
-    const total = await WeightEntry.countDocuments(query);
-    
-    // Execute the query with pagination
-    const entries = await WeightEntry.find(query)
-      .sort({ date: -1 })
-      .skip(skip)
-      .limit(limit);
-    
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        entries,
-        pagination: {
-          total,
-          limit,
-          skip,
-          hasMore: total > (skip + limit)
-        }
-      })
-    };
-  } catch (error) {
-    console.error('Error getting entries:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Failed to get entries', error: error.message })
-    };
+exports.handler = async (event, context) => {
+  // Handle OPTIONS request for CORS
+  if (event.httpMethod === 'OPTIONS') {
+    return response(200, {});
   }
-}
 
-/**
- * Create a new weight entry
- * @param {string} userId - The user ID
- * @param {Object} event - The Netlify event object
- * @param {Object} headers - Response headers
- * @returns {Promise<Object>} The response object
- */
-async function createEntry(userId, event, headers) {
-  try {
-    const data = JSON.parse(event.body);
-    
-    // Validate required fields
-    if (!data.date || !data.weight) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Date and weight are required fields' })
-      };
-    }
-
-    // Parse the date
-    const entryDate = new Date(data.date);
-    if (isNaN(entryDate.getTime())) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Invalid date format' })
-      };
-    }
-
-    // Create the entry
-    const entry = new WeightEntry({
-      userId,
-      date: entryDate,
-      weight: parseFloat(data.weight),
-      note: data.note || ''
-    });
-
-    // Save to database
-    await entry.save();
-
-    return {
-      statusCode: 201,
-      headers,
-      body: JSON.stringify({
-        message: 'Entry created successfully',
-        entry
-      })
-    };
-  } catch (error) {
-    // Handle duplicate entry error
-    if (error.code === 11000) {
-      return {
-        statusCode: 409,
-        headers,
-        body: JSON.stringify({ message: 'An entry for this date already exists' })
-      };
-    }
-
-    console.error('Error creating entry:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Failed to create entry', error: error.message })
-    };
+  const userId = event.queryStringParameters?.userId;
+  
+  // Check if userId is provided
+  if (!userId) {
+    return response(400, { error: 'User ID is required' });
   }
-}
 
-/**
- * Update an existing weight entry
- * @param {string} userId - The user ID
- * @param {Object} event - The Netlify event object
- * @param {Object} headers - Response headers
- * @returns {Promise<Object>} The response object
- */
-async function updateEntry(userId, event, headers) {
   try {
-    const data = JSON.parse(event.body);
+    // Connect to the database
+    await dbConnect();
     
-    // Validate the ID
-    if (!data.id) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Entry ID is required' })
-      };
+    // GET - Retrieve weight entries
+    if (event.httpMethod === 'GET') {
+      const from = event.queryStringParameters?.from;
+      const to = event.queryStringParameters?.to;
+      const limit = event.queryStringParameters?.limit || 100;
+      
+      let query = { userId };
+      
+      // If date range is provided
+      if (from && to) {
+        query.date = {
+          $gte: new Date(from),
+          $lte: new Date(to)
+        };
+      }
+      
+      const entries = await WeightEntry.find(query)
+        .sort({ date: -1 }) // Sort by date descending
+        .limit(parseInt(limit, 10));
+        
+      return response(200, { entries });
     }
-
-    // Find and update the entry
-    const updatedEntry = await WeightEntry.findOneAndUpdate(
-      { _id: data.id, userId },
-      { 
-        $set: { 
-          weight: parseFloat(data.weight),
-          note: data.note
-        } 
-      },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedEntry) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'Entry not found or not authorized' })
-      };
-    }
-
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        message: 'Entry updated successfully',
-        entry: updatedEntry
-      })
-    };
-  } catch (error) {
-    console.error('Error updating entry:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Failed to update entry', error: error.message })
-    };
-  }
-}
-
-/**
- * Delete a weight entry
- * @param {string} userId - The user ID
- * @param {Object} event - The Netlify event object
- * @param {Object} headers - Response headers
- * @returns {Promise<Object>} The response object
- */
-async function deleteEntry(userId, event, headers) {
-  try {
-    const params = event.queryStringParameters;
     
-    // Validate the ID
-    if (!params || !params.id) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: 'Entry ID is required' })
-      };
+    // POST - Create a new weight entry
+    if (event.httpMethod === 'POST') {
+      const data = parseBody(event.body);
+      
+      if (!data) {
+        return response(400, { error: 'Invalid request body' });
+      }
+      
+      if (!data.date || !data.weight) {
+        return response(400, { error: 'Date and weight are required' });
+      }
+      
+      // Check if an entry already exists for this date
+      const existingEntry = await WeightEntry.findOne({
+        userId,
+        date: new Date(data.date)
+      });
+      
+      if (existingEntry) {
+        return response(409, { 
+          error: 'An entry already exists for this date',
+          entryId: existingEntry._id
+        });
+      }
+      
+      const newEntry = new WeightEntry({
+        userId,
+        date: new Date(data.date),
+        weight: data.weight,
+        note: data.note || ''
+      });
+      
+      const savedEntry = await newEntry.save();
+      
+      return response(201, { entry: savedEntry });
     }
-
-    // Find and delete the entry
-    const deletedEntry = await WeightEntry.findOneAndDelete({
-      _id: params.id,
-      userId
-    });
-
-    if (!deletedEntry) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: 'Entry not found or not authorized' })
-      };
+    
+    // PUT - Update a weight entry
+    if (event.httpMethod === 'PUT') {
+      const entryId = event.queryStringParameters?.id;
+      
+      if (!entryId) {
+        return response(400, { error: 'Entry ID is required' });
+      }
+      
+      const data = parseBody(event.body);
+      
+      if (!data) {
+        return response(400, { error: 'Invalid request body' });
+      }
+      
+      // Find the entry to update
+      const entry = await WeightEntry.findOne({
+        _id: entryId,
+        userId // Ensure the entry belongs to the user
+      });
+      
+      if (!entry) {
+        return response(404, { error: 'Entry not found' });
+      }
+      
+      // Update only the fields that are provided
+      if (data.date) entry.date = new Date(data.date);
+      if (data.weight !== undefined) entry.weight = data.weight;
+      if (data.note !== undefined) entry.note = data.note;
+      
+      const updatedEntry = await entry.save();
+      
+      return response(200, { entry: updatedEntry });
     }
-
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        message: 'Entry deleted successfully',
-        entry: deletedEntry
-      })
-    };
+    
+    // DELETE - Remove a weight entry
+    if (event.httpMethod === 'DELETE') {
+      const entryId = event.queryStringParameters?.id;
+      
+      if (!entryId) {
+        return response(400, { error: 'Entry ID is required' });
+      }
+      
+      const deletedEntry = await WeightEntry.findOneAndDelete({
+        _id: entryId,
+        userId // Ensure the entry belongs to the user
+      });
+      
+      if (!deletedEntry) {
+        return response(404, { error: 'Entry not found' });
+      }
+      
+      return response(200, { message: 'Entry deleted successfully' });
+    }
+    
+    return response(405, { error: 'Method not allowed' });
+    
   } catch (error) {
-    console.error('Error deleting entry:', error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: 'Failed to delete entry', error: error.message })
-    };
+    console.error('Server error:', error);
+    return response(500, { error: 'Internal server error', message: error.message });
   }
-} 
+}; 

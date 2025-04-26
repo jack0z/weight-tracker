@@ -3,6 +3,20 @@ require('../database/models/WeightEntry');
 const mongoose = require('mongoose');
 const WeightEntry = mongoose.model('WeightEntry');
 
+// Helper to validate date format (YYYY-MM-DD)
+function isValidDateFormat(dateString) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateString);
+}
+
+// Helper to parse date string safely
+function parseDate(dateString) {
+  if (!isValidDateFormat(dateString)) {
+    return null;
+  }
+  const date = new Date(dateString);
+  return isNaN(date.getTime()) ? null : date;
+}
+
 /**
  * Handler for GET, POST, PUT, DELETE requests to /api/weight-entries
  */
@@ -19,10 +33,29 @@ exports.handler = async (event, context) => {
     // Connect to the database
     await connectToDatabase();
     
+    // Set CORS headers
+    const headers = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Content-Type': 'application/json'
+    };
+
+    // Handle OPTIONS (preflight) request
+    if (method === 'OPTIONS') {
+      return {
+        statusCode: 204,
+        headers,
+        body: ''
+      };
+    }
+
     // Get user ID from authentication (implement your auth method)
     // This is a placeholder - you should integrate with your auth system
     const userId = event.headers.authorization || 'anonymous-user';
     
+    // Extract path parameters
+    const entryId = segments[segments.length - 1];
     // Handle different HTTP methods
     if (method === 'GET') {
       return await handleGet(segments, userId, event);

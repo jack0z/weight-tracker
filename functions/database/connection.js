@@ -16,43 +16,50 @@ const schemas = {
 // Add compound index for userId and date
 schemas.WeightEntry.index({ userId: 1, date: 1 }, { unique: true });
 
-// Cache connection
+// Cache the database connection
 let cachedConnection = null;
 
 /**
- * Connect to the database
- * @returns {Promise<mongoose.Connection>}
+ * Connect to MongoDB Atlas or local MongoDB
+ * Uses connection pooling to optimize serverless function performance
  */
-const connectToDatabase = async () => {
-  // If we already have a connection, use it
+async function connectToDatabase() {
+  // If a connection already exists, return it
   if (cachedConnection && mongoose.connection.readyState === 1) {
     return cachedConnection;
   }
 
-  // Get the MongoDB URI from environment variables
-  const uri = process.env.MONGODB_URI;
-  
-  if (!uri) {
+  // Check if MongoDB URI is defined
+  if (!process.env.MONGODB_URI) {
     throw new Error('MONGODB_URI environment variable is not defined');
   }
 
+  // Configure Mongoose
+  mongoose.set('strictQuery', false);
+  
   try {
     // Connect to MongoDB
-    const conn = await mongoose.connect(uri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+    const connection = await mongoose.connect(process.env.MONGODB_URI, {
+      // Connection pooling options for serverless functions
+      maxPoolSize: 10, // Keep up to 10 connections open
+      minPoolSize: 1,  // Keep at least 1 connection open
+      socketTimeoutMS: 30000, // Close sockets after 30 seconds of inactivity
+      connectTimeoutMS: 30000, // Give up initial connection after 30 seconds
     });
     
-    console.log(`MongoDB connected: ${conn.connection.host}`);
+    // Store the connection in cache
+    cachedConnection = connection;
     
-    // Cache the connection
-    cachedConnection = conn;
-    return conn;
+    // Log success
+    console.log('Successfully connected to MongoDB');
+    
+    // Return the database connection
+    return connection;
   } catch (error) {
     console.error('MongoDB connection error:', error);
     throw error;
   }
-};
+}
 
 /**
  * Get a mongoose model

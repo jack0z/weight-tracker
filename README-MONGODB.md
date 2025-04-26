@@ -174,4 +174,148 @@ The API returns appropriate HTTP status codes:
 
 ## Security
 
-This implementation uses a simple user ID system for demonstration purposes. In a production environment, you should implement proper authentication (e.g., JWT, OAuth) to secure the API endpoints. 
+This implementation uses a simple user ID system for demonstration purposes. In a production environment, you should implement proper authentication (e.g., JWT, OAuth) to secure the API endpoints.
+
+# MongoDB Integration Guide
+
+This guide will help you set up and use the MongoDB integration for the Weight Tracker application.
+
+## Why MongoDB?
+
+While the default version of the Weight Tracker uses localStorage for data persistence, the MongoDB integration offers several advantages:
+
+- **Cross-Device Sync**: Access your weight data from any device
+- **Data Durability**: Your data persists even if you clear your browser data
+- **Enhanced Security**: Protect your data with MongoDB Atlas security features
+- **Scalability**: Handle large amounts of data without performance issues
+- **Analytics**: Leverage MongoDB's querying capabilities for advanced statistics
+
+## Setup Instructions
+
+### 1. Create a MongoDB Atlas Account
+
+1. Go to [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) and sign up for a free account
+2. Create a new organization if prompted
+3. Create a new project for the Weight Tracker
+
+### 2. Create a Cluster
+
+1. Create a new shared cluster (free tier is sufficient)
+2. Choose your preferred cloud provider and region
+3. Select "M0 Sandbox" (free) for the cluster tier
+4. Name your cluster (e.g., "weight-tracker")
+5. Click "Create Cluster"
+
+### 3. Set Up Database Access
+
+1. In the sidebar, go to Database Access
+2. Click "Add New Database User"
+3. Create a new user with a secure password
+4. Select "Read and write to any database" for user privileges
+5. Click "Add User"
+
+### 4. Configure Network Access
+
+1. In the sidebar, go to Network Access
+2. Click "Add IP Address"
+3. For development, you can choose "Allow Access from Anywhere" (or specify your IP)
+4. Click "Confirm"
+
+### 5. Get Your Connection String
+
+1. Go back to the Clusters view and click "Connect"
+2. Choose "Connect your application"
+3. Select "Node.js" as the driver and the latest version
+4. Copy the connection string (it will look like `mongodb+srv://username:<password>@cluster0.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`)
+5. Replace `<password>` with your database user's password
+6. Replace `myFirstDatabase` with `weight_tracker`
+
+### 6. Configure the Application
+
+1. In the Weight Tracker project, copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit the `.env` file and add your MongoDB connection string:
+   ```
+   MONGODB_URI=mongodb+srv://username:password@cluster0.mongodb.net/weight_tracker?retryWrites=true&w=majority
+   ```
+
+### 7. Test Your Connection
+
+Run the database connection test script:
+```bash
+npm run test-db
+```
+
+You should see a successful connection message.
+
+### 8. Initialize the Database (Optional)
+
+To add sample data to your database:
+```bash
+npm run init-db
+```
+
+This will create the necessary collections and add sample weight entries that you can use to test the application.
+
+### 9. Start the Application with MongoDB Integration
+
+```bash
+npm run netlify:dev
+```
+
+This will start the application with both Next.js frontend and Netlify Functions for the MongoDB API.
+
+## Using the MongoDB Version
+
+1. Open the application in your browser (usually at http://localhost:8888)
+2. On the main page, click the "Try MongoDB Version" button
+3. You'll be taken to the MongoDB version of the application where all your data is stored in the cloud
+
+## API Endpoints
+
+The MongoDB integration includes several REST API endpoints:
+
+- `GET /api/weight-entries` - Get all weight entries with pagination
+- `POST /api/weight-entries` - Create a new weight entry
+- `PUT /api/weight-entries/:id` - Update an existing entry
+- `DELETE /api/weight-entries/:id` - Delete an entry
+- `GET /api/weight-stats` - Get weight statistics and analytics
+
+## Deployment
+
+To deploy the application with MongoDB integration to Netlify:
+
+1. Push your code to a GitHub repository
+2. Create a new site in Netlify connected to your repository
+3. Add your `MONGODB_URI` as an environment variable in Netlify
+4. Deploy the site
+
+## Troubleshooting
+
+### Cannot Connect to MongoDB
+
+1. Verify your connection string is correct in the `.env` file
+2. Check if your IP is allowed in the Network Access settings
+3. Ensure your database user has the correct permissions
+4. Try running the test script: `npm run test-db`
+
+### Serverless Functions Not Working
+
+1. Make sure you're running the app with `npm run netlify:dev`
+2. Check the terminal for any error messages
+3. Verify that the `netlify.toml` file is correctly set up
+
+### Data Not Showing Up
+
+1. Check if you're viewing the MongoDB version (URL path should include `/mongodb`)
+2. Ensure you have data in your MongoDB database
+3. Try initializing sample data with `npm run init-db`
+
+## Additional Resources
+
+- [MongoDB Atlas Documentation](https://docs.atlas.mongodb.com/)
+- [Mongoose Documentation](https://mongoosejs.com/docs/)
+- [Netlify Functions Documentation](https://docs.netlify.com/functions/overview/) 

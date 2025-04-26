@@ -6,33 +6,34 @@
   publish = "out"
   
   # Default build command
-  command = "npm install --legacy-peer-deps --ignore-engines && (rm -f postcss.config.js tailwind.config.js || true) && npm run build"
+  command = "npm run build"
   
   # Directory with serverless functions
   functions = "functions"
 
 # Environment variable inheritance
 [build.environment]
-  NODE_VERSION = "18.17.0"
+  NODE_VERSION = "18"
+  NPM_VERSION = "9"
   # Set a flag to indicate we're using MongoDB by default
   USE_LOCALSTORAGE_FALLBACK = "false"
   NODE_ENV = "production"
 
-# Redirects for Netlify functions
+# Redirects and rewrites for SPA and API
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
   force = true
-  
-# Handle SPA routing for Next.js - force SPA routing
+
+# Make sure 404s return index.html for SPA
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
   force = true
 
-# Make sure to serve JavaScript and CSS files with the correct MIME type
+# Define proper content types for assets
 [[headers]]
   for = "/*.js"
   [headers.values]
@@ -42,6 +43,40 @@
   for = "/*.css"
   [headers.values]
     Content-Type = "text/css"
+
+# Add cache headers for static assets
+[[headers]]
+  for = "/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# CORS headers for API endpoints
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+
+# Function configuration
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["mongoose"]
+
+[dev]
+  functions = "functions"
+  publish = "out"
+  autoLaunch = false
+  command = "npm run dev"
+  port = 3000
+  targetPort = 3000
+  framework = "nextjs"
+
+# Development environment variables
+[dev.environment]
+  NODE_VERSION = "18.17.0"
+  USE_LOCALSTORAGE_FALLBACK = "false"
+  NODE_ENV = "development"
 
 # Handle demo shares by exact path
 [[redirects]]
@@ -64,27 +99,11 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Function configuration
-[functions]
-  node_bundler = "esbuild"
-  external_node_modules = ["mongoose"]
-
-[dev]
-  functions = "functions"
-  publish = "."
-  autoLaunch = false
-
-# Environment variable inheritance
-[dev.environment]
-  NODE_VERSION = "18.17.0"
-  # Set a flag to indicate we're using MongoDB by default
-  USE_LOCALSTORAGE_FALLBACK = "false"
-  NODE_ENV = "production"
-
-# CORS headers for all API endpoints
+# Headers to improve security
 [[headers]]
-  for = "/api/*"
+  for = "/*"
   [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization" 
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin" 
