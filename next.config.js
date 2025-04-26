@@ -1,18 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  reactStrictMode: false,
   output: 'export',
   distDir: 'out',
   images: {
     unoptimized: true,
   },
   trailingSlash: true,
-  // Disable strict mode for searchParams during static export
-  experimental: {
-    missingSuspenseWithCSRBailout: false
-  },
+  // Set base path to empty for Netlify compatibility
+  basePath: '',
   // Add asset prefix for production
-  assetPrefix: process.env.NODE_ENV === 'production' ? '/' : '',
+  assetPrefix: './',
+  // Disable experimental features
+  experimental: {
+    missingSuspenseWithCSRBailout: false,
+    appDir: false
+  },
   // Ensure _redirects file is copied to the output directory
   async redirects() {
     return [

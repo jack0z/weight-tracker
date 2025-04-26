@@ -3,7 +3,7 @@
   base = "./"
   
   # Directory that contains the deploy-ready HTML files and assets
-  publish = "out"
+  publish = "."
   
   # Default build command
   command = "npm install --legacy-peer-deps --ignore-engines && npm run build"
@@ -23,6 +23,7 @@
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+  force = true
   
 # Handle SPA routing for Next.js - force SPA routing
 [[redirects]]
@@ -66,4 +67,24 @@
 # Function configuration
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["mongodb"] 
+  external_node_modules = ["mongoose"]
+
+[dev]
+  functions = "functions"
+  publish = "."
+  autoLaunch = false
+
+# Environment variable inheritance
+[dev.environment]
+  NODE_VERSION = "18.17.0"
+  # Set a flag to indicate we're using MongoDB by default
+  USE_LOCALSTORAGE_FALLBACK = "false"
+  NODE_ENV = "production"
+
+# CORS headers for all API endpoints
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization" 

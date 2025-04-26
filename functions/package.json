@@ -1,0 +1,13 @@
+{
+  "name": "weight-tracker-api",
+  "version": "1.0.0",
+  "description": "API for weight tracking application",
+  "main": "index.js",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "mongoose": "^8.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
