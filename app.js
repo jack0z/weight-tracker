@@ -18,6 +18,7 @@ import * as Export from './export.js';
 import * as UI from './ui.js';
 import * as Auth from './auth.js';
 import * as Share from './share.js';
+import * as Api from './api.js';
 
 // Import components
 import Login from './components/Login.jsx';
@@ -253,24 +254,92 @@ export default function WeightTracker() {
     toast.success("Height saved");
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!weight || isNaN(parseFloat(weight))) {
-      toast.error("Please enter a valid weight");
+      toast.error("Please enter a valid weight", {
+        style: {
+          background: theme === 'dark' ? "#313338" : "#ffffff",
+          color: theme === 'dark' ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+        }
+      });
       return;
     }
     
-    // Use our Data module to add an entry
-    const updatedEntries = Data.addEntry(date, weight, entries);
-    setEntries(updatedEntries);
-    setWeight("");
-    toast.success("Weight entry added");
+    try {
+      // Show loading toast
+      toast.loading("Adding entry...", {
+        style: {
+          background: theme === 'dark' ? "#313338" : "#ffffff",
+          color: theme === 'dark' ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+        }
+      });
+      
+      // Use our Data module to add an entry
+      const updatedEntries = await Data.addEntry(date, weight, entries, currentUser);
+      setEntries(updatedEntries);
+      setWeight("");
+      
+      // Dismiss loading toast and show success
+      toast.dismiss();
+      toast.success("Weight entry added", {
+        style: {
+          background: theme === 'dark' ? "#313338" : "#ffffff",
+          color: theme === 'dark' ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+        }
+      });
+    } catch (error) {
+      // Dismiss loading toast and show error
+      toast.dismiss();
+      toast.error(`Error adding entry: ${error.message}`, {
+        style: {
+          background: theme === 'dark' ? "#313338" : "#ffffff",
+          color: theme === 'dark' ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+        }
+      });
+      console.error("Error adding entry:", error);
+    }
   };
   
-  const handleDelete = (id) => {
-    // Use our Data module to delete an entry
-    const updatedEntries = Data.deleteEntry(id, entries);
-    setEntries(updatedEntries);
-    toast.success("Entry deleted");
+  const handleDelete = async (id) => {
+    try {
+      // Show loading toast
+      toast.loading("Deleting entry...", {
+        style: {
+          background: theme === 'dark' ? "#313338" : "#ffffff",
+          color: theme === 'dark' ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+        }
+      });
+      
+      // Use our Data module to delete an entry
+      const updatedEntries = await Data.deleteEntry(id, entries, currentUser);
+      setEntries(updatedEntries);
+      
+      // Dismiss loading toast and show success
+      toast.dismiss();
+      toast.success("Entry deleted", {
+        style: {
+          background: theme === 'dark' ? "#313338" : "#ffffff",
+          color: theme === 'dark' ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+        }
+      });
+    } catch (error) {
+      // Dismiss loading toast and show error
+      toast.dismiss();
+      toast.error(`Error deleting entry: ${error.message}`, {
+        style: {
+          background: theme === 'dark' ? "#313338" : "#ffffff",
+          color: theme === 'dark' ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+        }
+      });
+      console.error("Error deleting entry:", error);
+    }
   };
 
   // Use the UI module's function to get trend icons
@@ -588,6 +657,45 @@ export default function WeightTracker() {
     positive: theme === 'dark' ? 'text-[#57f287]' : 'text-[#126134]',
     negative: theme === 'dark' ? 'text-[#ed4245]' : 'text-[#F85552]',
   };
+
+  // Load data when the component mounts
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
+        let loadedEntries = [];
+        
+        if (currentUser && localStorage.getItem('token')) {
+          // Attempt to load from API if user is logged in
+          const response = await Api.get('/api/entries');
+          loadedEntries = response.data;
+        } else {
+          // Fall back to localStorage if not logged in
+          const savedEntries = localStorage.getItem('weightEntries');
+          if (savedEntries) {
+            loadedEntries = JSON.parse(savedEntries);
+          }
+        }
+        
+        // Sort entries by date
+        loadedEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
+        setEntries(loadedEntries);
+      } catch (error) {
+        console.error("Error loading data:", error);
+        toast.error(`Error loading data: ${error.message}`, {
+          style: {
+            background: theme === 'dark' ? "#313338" : "#ffffff",
+            color: theme === 'dark' ? "#e3e5e8" : "#374151",
+            border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+          }
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    loadData();
+  }, [currentUser, theme]);
 
   // Main UI return
   return (

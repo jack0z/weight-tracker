@@ -9,9 +9,10 @@ export default function Login({ onLogin, theme, toggleTheme }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [registering, setRegistering] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Override the Auth.handleLogin function to use our themed toasts
-  const handleSubmit = () => {
+  // Handle authentication with the API
+  const handleSubmit = async () => {
     if (!username || !password) {
       toast.error("Please enter username and password", {
         style: {
@@ -23,18 +24,21 @@ export default function Login({ onLogin, theme, toggleTheme }) {
       return;
     }
     
-    // Check if user exists
-    const userCredentials = localStorage.getItem(`credentials_${username}`);
+    setIsLoading(true);
     
-    if (userCredentials) {
-      // User exists, verify password
-      const storedPassword = userCredentials;
+    try {
+      let result;
       
-      if (password === storedPassword) {
-        // Successful login
-        localStorage.setItem("current-user", username);
-        
-        toast.success(`Welcome back, ${username}!`, {
+      if (registering) {
+        // Register new user
+        result = await Auth.handleRegister(username, password);
+      } else {
+        // Login existing user
+        result = await Auth.handleLogin(username, password);
+      }
+      
+      if (result.success) {
+        toast.success(registering ? `Account created! Welcome, ${username}!` : `Welcome back, ${username}!`, {
           style: {
             background: theme === 'dark' ? "#313338" : "#ffffff",
             color: theme === 'dark' ? "#e3e5e8" : "#374151",
@@ -45,42 +49,31 @@ export default function Login({ onLogin, theme, toggleTheme }) {
         // Pass user information back to parent component
         onLogin({ username });
       } else {
-        // Wrong password
-        toast.error("Incorrect password", {
+        // Authentication failed
+        toast.error(result.error, {
           style: {
             background: theme === 'dark' ? "#313338" : "#ffffff",
             color: theme === 'dark' ? "#e3e5e8" : "#374151",
             border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
           }
         });
+        
+        // If login fails, suggest registration
+        if (!registering && result.error === "Invalid username or password") {
+          setRegistering(true);
+        }
       }
-    } else if (registering) {
-      // New user registration
-      localStorage.setItem(`credentials_${username}`, password);
-      
-      // Set as logged in
-      localStorage.setItem("current-user", username);
-      
-      toast.success(`Account created! Welcome, ${username}!`, {
+    } catch (error) {
+      toast.error("Authentication error. Please try again.", {
         style: {
           background: theme === 'dark' ? "#313338" : "#ffffff",
           color: theme === 'dark' ? "#e3e5e8" : "#374151",
           border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
         }
       });
-      
-      // Pass user information back to parent component
-      onLogin({ username });
-    } else {
-      // User doesn't exist
-      toast.error("User not found. Register a new account?", {
-        style: {
-          background: theme === 'dark' ? "#313338" : "#ffffff",
-          color: theme === 'dark' ? "#e3e5e8" : "#374151",
-          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-        }
-      });
-      setRegistering(true);
+      console.error("Login error:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -135,6 +128,7 @@ export default function Login({ onLogin, theme, toggleTheme }) {
                 type="text"
                 placeholder="Enter your username"
                 className={`${colors.inputBg} border-0 h-10 pl-3 w-full ${colors.text} rounded-md`}
+                disabled={isLoading}
               />
             </div>
             <div className="flex flex-col">
@@ -145,6 +139,7 @@ export default function Login({ onLogin, theme, toggleTheme }) {
                 type="password"
                 placeholder="Enter your password"
                 className={`${colors.inputBg} border-0 h-10 pl-3 w-full ${colors.text} rounded-md`}
+                disabled={isLoading}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     handleSubmit();
@@ -154,9 +149,12 @@ export default function Login({ onLogin, theme, toggleTheme }) {
             </div>
             <button
               onClick={handleSubmit}
-              className={`w-full mt-2 py-2 ${colors.buttonBgPrimary} text-white rounded-md flex items-center justify-center`}
+              className={`w-full mt-2 py-2 ${colors.buttonBgPrimary} text-white rounded-md flex items-center justify-center ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              disabled={isLoading}
             >
-              {registering ? (
+              {isLoading ? (
+                <span>Processing...</span>
+              ) : registering ? (
                 <>
                   <LogIn className="h-4 w-4 mr-2" />
                   Create Account
@@ -173,7 +171,8 @@ export default function Login({ onLogin, theme, toggleTheme }) {
                 setRegistering(!registering);
                 setPassword("");
               }}
-              className={`w-full mt-2 py-2 ${colors.buttonBgSecondary} text-white rounded-md`}
+              className={`w-full mt-2 py-2 ${colors.buttonBgSecondary} text-white rounded-md ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              disabled={isLoading}
             >
               {registering ? 'Back to Login' : 'Create New Account'}
             </button>

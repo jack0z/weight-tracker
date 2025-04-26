@@ -1,4 +1,5 @@
 // auth.js - Authentication functionality for the Weight Tracker app
+import api from './api';
 import { toast } from "sonner";
 import * as Data from './data.js';
 
@@ -7,14 +8,27 @@ import * as Data from './data.js';
  * @returns {Object|null} User information if logged in, null otherwise
  */
 export function checkExistingLogin() {
-  if (typeof window === 'undefined') return null;
-  
-  const savedUser = localStorage.getItem("current-user");
-  if (savedUser) {
-    return { username: savedUser };
+  try {
+    // For backwards compatibility, check localStorage first
+    const userData = localStorage.getItem('weightTrackerUser');
+    if (userData) {
+      const user = JSON.parse(userData);
+      return user;
+    }
+    
+    // Otherwise check for token in localStorage
+    const token = localStorage.getItem('weightTrackerToken');
+    const username = localStorage.getItem('weightTrackerUsername');
+    
+    if (token && username) {
+      return { username, token };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error checking login status:', error);
+    return null;
   }
-  
-  return null;
 }
 
 /**
@@ -24,54 +38,72 @@ export function checkExistingLogin() {
  * @param {boolean} registering - Whether the user is in registration mode
  * @returns {Object} Results of the login attempt
  */
-export function handleLogin(username, password, registering) {
-  if (!username || !password) {
-    toast.error("Please enter username and password");
-    return { success: false, message: "Missing credentials" };
-  }
-  
-  // Check if user exists
-  const userCredentials = localStorage.getItem(`credentials_${username}`);
-  
-  if (userCredentials) {
-    // User exists, verify password
-    const storedPassword = userCredentials;
+export async function handleLogin(username, password) {
+  try {
+    const response = await api.post('/api/auth', {
+      action: 'login',
+      username,
+      password
+    });
     
-    if (password === storedPassword) {
-      // Successful login
-      localStorage.setItem("current-user", username);
+    if (response.data.token) {
+      // Store auth data
+      localStorage.setItem('weightTrackerToken', response.data.token);
+      localStorage.setItem('weightTrackerUsername', username);
       
-      toast.success(`Welcome back, ${username}!`);
-      return { 
-        success: true, 
-        message: "Login successful", 
-        user: { username } 
+      return {
+        success: true,
+        username: username
       };
     } else {
-      // Wrong password
-      toast.error("Incorrect password");
-      return { success: false, message: "Incorrect password" };
+      return {
+        success: false,
+        error: 'Login failed'
+      };
     }
-  } else if (registering) {
-    // New user registration
-    localStorage.setItem(`credentials_${username}`, password);
-    
-    // Set as logged in
-    localStorage.setItem("current-user", username);
-    
-    toast.success(`Account created! Welcome, ${username}!`);
-    return { 
-      success: true, 
-      message: "Registration successful", 
-      user: { username } 
+  } catch (error) {
+    console.error('Login error:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Login failed'
     };
-  } else {
-    // User doesn't exist
-    toast.error("User not found. Register a new account?");
-    return { 
-      success: false, 
-      message: "User not found", 
-      shouldRegister: true 
+  }
+}
+
+/**
+ * Handles user registration
+ * @param {string} username - The username to register with
+ * @param {string} password - The password to register with
+ * @returns {Object} Results of the registration attempt
+ */
+export async function handleRegister(username, password) {
+  try {
+    const response = await api.post('/api/auth', {
+      action: 'register',
+      username,
+      password
+    });
+    
+    if (response.data.token) {
+      // Store auth data
+      localStorage.setItem('weightTrackerToken', response.data.token);
+      localStorage.setItem('weightTrackerUsername', username);
+      
+      return {
+        success: true,
+        username: username
+      };
+    } else {
+      return {
+        success: false,
+        error: 'Registration failed'
+      };
+    }
+  } catch (error) {
+    console.error('Registration error:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || 'Registration failed'
     };
   }
 }
@@ -82,10 +114,12 @@ export function handleLogin(username, password, registering) {
  */
 export function handleLogout() {
   try {
-    localStorage.removeItem("current-user");
+    localStorage.removeItem('weightTrackerToken');
+    localStorage.removeItem('weightTrackerUsername');
+    localStorage.removeItem('weightTrackerUser'); // For backwards compatibility
     return true;
   } catch (error) {
-    console.error("Error during logout:", error);
+    console.error('Logout error:', error);
     return false;
   }
 }
@@ -95,33 +129,39 @@ export function handleLogout() {
  * @param {string} username - The username to load data for
  * @returns {Object} The loaded user data
  */
-export function loadUserData(username) {
-  if (!username) return null;
-  
-  const userPrefix = `user_${username}_`;
-  
+export async function loadUserData(username) {
   try {
-    // Load entries
-    const userEntriesJson = localStorage.getItem(`${userPrefix}entries`);
-    const userEntries = userEntriesJson ? JSON.parse(userEntriesJson) : [];
+    // For backwards compatibility, check localStorage first
+    const storedData = localStorage.getItem(`weightTracker_${username}`);
+    if (storedData) {
+      return JSON.parse(storedData);
+    }
     
-    // Load settings
-    const startWeight = localStorage.getItem(`${userPrefix}start-weight`) || "";
-    const goalWeight = localStorage.getItem(`${userPrefix}goal-weight`) || "";
-    const height = localStorage.getItem(`${userPrefix}height`) || "";
+    // Get user entries from API
+    const entriesResponse = await api.get(`/api/getEntries?userId=${username}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('weightTrackerToken')}`
+      }
+    });
+    
+    // Get user settings from API
+    const settingsResponse = await api.get(`/api/getSettings?userId=${username}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('weightTrackerToken')}`
+      }
+    });
     
     return {
-      entries: userEntries,
-      settings: {
-        startWeight,
-        goalWeight,
-        height
-      }
+      entries: entriesResponse.data.entries || [],
+      settings: settingsResponse.data.settings || { startWeight: null, goalWeight: null, height: null }
     };
   } catch (error) {
-    console.error("Error loading user data:", error);
-    toast.error("Error loading your data");
-    return null;
+    console.error('Error loading user data:', error);
+    // Fallback to empty data
+    return {
+      entries: [],
+      settings: { startWeight: null, goalWeight: null, height: null }
+    };
   }
 }
 
@@ -131,34 +171,59 @@ export function loadUserData(username) {
  * @param {Array} entries - The entries to save
  * @param {Object} settings - The settings to save
  */
-export function saveUserData(username, entries, settings) {
-  if (!username) return;
-  
-  const userPrefix = `user_${username}_`;
-  
+export async function saveUserData(username, entries = null, settings = null) {
   try {
-    // Save entries
-    if (entries && entries.length > 0) {
-      localStorage.setItem(`${userPrefix}entries`, JSON.stringify(entries));
+    // For backwards compatibility, save to localStorage
+    let userData = {
+      entries: [],
+      settings: { startWeight: null, goalWeight: null, height: null }
+    };
+    
+    // Try to load existing data first
+    const existingDataStr = localStorage.getItem(`weightTracker_${username}`);
+    if (existingDataStr) {
+      userData = JSON.parse(existingDataStr);
     }
     
-    // Save settings
-    if (settings) {
-      if (settings.startWeight) {
-        localStorage.setItem(`${userPrefix}start-weight`, settings.startWeight);
-      }
+    // Update with new data
+    if (entries !== null) {
+      userData.entries = entries;
       
-      if (settings.goalWeight) {
-        localStorage.setItem(`${userPrefix}goal-weight`, settings.goalWeight);
-      }
-      
-      if (settings.height) {
-        localStorage.setItem(`${userPrefix}height`, settings.height);
-      }
+      // Save entries to API - disabled for now as we need to implement bulk save
+      // entries.forEach(async (entry) => {
+      //   await api.post('/api/addEntry', {
+      //     userId: username,
+      //     date: entry.date,
+      //     weight: entry.weight
+      //   }, {
+      //     headers: {
+      //       'Authorization': `Bearer ${localStorage.getItem('weightTrackerToken')}`
+      //     }
+      //   });
+      // });
     }
+    
+    if (settings !== null) {
+      userData.settings = { ...userData.settings, ...settings };
+      
+      // Save settings to API
+      await api.post('/api/saveSettings', {
+        userId: username,
+        ...settings
+      }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('weightTrackerToken')}`
+        }
+      });
+    }
+    
+    // Save updated data to localStorage
+    localStorage.setItem(`weightTracker_${username}`, JSON.stringify(userData));
+    
+    return true;
   } catch (error) {
-    console.error("Error saving user data:", error);
-    toast.error("Error saving your data");
+    console.error('Error saving user data:', error);
+    return false;
   }
 }
 
@@ -180,4 +245,12 @@ export function clearUserData(username) {
   } catch (error) {
     console.error("Error clearing user data:", error);
   }
+}
+
+// Helper function to get auth headers
+export function getAuthHeaders() {
+  const token = localStorage.getItem('weightTrackerToken');
+  return {
+    'Authorization': `Bearer ${token}`
+  };
 } 

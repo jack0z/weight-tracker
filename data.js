@@ -1,5 +1,9 @@
 // data.js - Handles data operations for the weight tracker
 
+import api from './api';
+import { v4 as uuidv4 } from 'uuid';
+import { format, parse } from 'date-fns';
+
 // Load entries from localStorage
 function loadEntries() {
   try {
@@ -64,81 +68,159 @@ function saveSetting(key, value) {
   }
 }
 
-// Add a new weight entry
-function addEntry(date, weight, entries) {
-  try {
-    console.log(`data.js: Adding entry - date: ${date}, weight: ${weight}`);
-    const newEntry = {
-      id: Date.now(),
-      date: new Date(date).toISOString(),
-      weight: parseFloat(weight)
-    };
-    
-    const updatedEntries = [newEntry, ...entries];
-    saveEntries(updatedEntries);
-    return updatedEntries;
-  } catch (error) {
-    console.error("data.js: Error adding entry:", error);
-    return entries;
-  }
-}
-
-// Delete a weight entry
-function deleteEntry(id, entries) {
-  try {
-    console.log(`data.js: Deleting entry with id: ${id}`);
-    const updatedEntries = entries.filter(entry => entry.id !== id);
-    saveEntries(updatedEntries);
-    return updatedEntries;
-  } catch (error) {
-    console.error("data.js: Error deleting entry:", error);
-    return entries;
-  }
-}
-
-// Format entries with additional data for display
-function formatEntries(entries, formatFn) {
-  try {
-    console.log("data.js: Formatting entries, count:", entries.length);
-    
-    if (!entries || entries.length === 0) return [];
-    
-    // Use provided format function or create a fallback
-    const getFormattedDate = (date, formatStr) => {
-      // Check if format function was provided
-      if (formatFn) {
-        return formatFn(new Date(date), formatStr);
-      } else {
-        // Fallback formatting
-        const dateObj = new Date(date);
-        if (formatStr === "MMM d, yyyy") {
-          const month = dateObj.toLocaleString('default', { month: 'short' });
-          const day = dateObj.getDate();
-          const year = dateObj.getFullYear();
-          return `${month} ${day}, ${year}`;
-        } else if (formatStr === "EEEE") {
-          return dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-        } else {
-          return dateObj.toLocaleDateString();
-        }
-      }
-    };
-    
-    const formattedEntries = entries.map(e => {
-      const dateObj = new Date(e.date);
-      return {
-        ...e,
-        dateFormatted: getFormattedDate(e.date, "MMM d, yyyy"),
-        dayFormatted: getFormattedDate(e.date, "EEEE"),
-        dateObj: dateObj
-      };
-    }).sort((a, b) => b.dateObj - a.dateObj);
-    
-    console.log("data.js: Formatted entries successfully");
-    return formattedEntries;
-  } catch (error) {
-    console.error("data.js: Error formatting entries:", error);
+// Format entries array for display
+export function formatEntries(entries, dateFormat) {
+  if (!entries || !Array.isArray(entries) || entries.length === 0) {
     return [];
+  }
+  
+  // Sort entries by date, newest first
+  const sortedEntries = [...entries].sort((a, b) => {
+    return new Date(b.date) - new Date(a.date);
+  });
+  
+  // Format entries for display
+  return sortedEntries.map(entry => {
+    // Create a date object from the entry date
+    const dateObj = new Date(entry.date);
+    
+    return {
+      id: entry._id || entry.id,
+      date: entry.date,
+      dateObj,
+      dateFormatted: format(dateObj, 'yyyy-MM-dd'),
+      dayFormatted: format(dateObj, 'EEEE'),
+      weight: parseFloat(entry.weight)
+    };
+  });
+}
+
+// Add a new entry
+export async function addEntry(date, weight, existingEntries = [], userId = null) {
+  if (!date || !weight) {
+    return existingEntries;
+  }
+  
+  weight = parseFloat(weight);
+  if (isNaN(weight)) {
+    return existingEntries;
+  }
+  
+  // Get userId from localStorage if not provided
+  if (!userId) {
+    userId = localStorage.getItem('weightTrackerUsername');
+  }
+  
+  try {
+    // First check if we have a token - indicating API mode
+    const token = localStorage.getItem('weightTrackerToken');
+    
+    if (token && userId) {
+      // Using API mode
+      const response = await api.post('/api/addEntry', {
+        userId,
+        date,
+        weight
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.data.success) {
+        // Get the new ID from the response
+        const newId = response.data.id;
+        
+        // Create a new entry with the ID from the API
+        const newEntry = {
+          id: newId,
+          _id: newId,
+          date,
+          weight
+        };
+        
+        // Return updated entries array with the new entry
+        return [...existingEntries, newEntry];
+      } else {
+        console.error('Error adding entry via API');
+        return existingEntries;
+      }
+    } else {
+      // Fallback to localStorage mode
+      const newEntry = {
+        id: uuidv4(),
+        date,
+        weight
+      };
+      
+      // Check for duplicates and update if exists
+      const existingEntryIndex = existingEntries.findIndex(entry => 
+        entry.date === date
+      );
+      
+      if (existingEntryIndex !== -1) {
+        // Update existing entry
+        return existingEntries.map((entry, index) => 
+          index === existingEntryIndex ? {...entry, weight} : entry
+        );
+      } else {
+        // Add new entry
+        return [...existingEntries, newEntry];
+      }
+    }
+  } catch (error) {
+    console.error('Error in addEntry:', error);
+    
+    // Fallback to local only if API call fails
+    const newEntry = {
+      id: uuidv4(),
+      date,
+      weight
+    };
+    
+    return [...existingEntries, newEntry];
+  }
+}
+
+// Delete an entry by ID
+export async function deleteEntry(id, existingEntries = [], userId = null) {
+  if (!id || !existingEntries.length) {
+    return existingEntries;
+  }
+  
+  // Get userId from localStorage if not provided
+  if (!userId) {
+    userId = localStorage.getItem('weightTrackerUsername');
+  }
+  
+  try {
+    // First check if we have a token - indicating API mode
+    const token = localStorage.getItem('weightTrackerToken');
+    
+    if (token && userId) {
+      // Using API mode
+      const response = await api.delete(`/api/deleteEntry?id=${id}&userId=${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.data.success) {
+        // Return entries with the deleted one removed
+        return existingEntries.filter(entry => entry.id !== id && entry._id !== id);
+      } else {
+        console.error('Error deleting entry via API');
+        return existingEntries;
+      }
+    } else {
+      // Fallback to localStorage mode
+      return existingEntries.filter(entry => entry.id !== id);
+    }
+  } catch (error) {
+    console.error('Error in deleteEntry:', error);
+    
+    // Fallback to local only if API call fails
+    return existingEntries.filter(entry => entry.id !== id);
   }
 }
 
@@ -148,7 +230,7 @@ export {
   saveEntries,
   loadSettings,
   saveSetting,
+  formatEntries,
   addEntry,
-  deleteEntry,
-  formatEntries
+  deleteEntry
 }; 
