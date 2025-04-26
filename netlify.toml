@@ -4,7 +4,7 @@
   functions = "netlify/functions"
 
 [dev]
-  command = "npm run dev"
+  command = "npm run build"
   port = 3000
   publish = "out"
   autoLaunch = true

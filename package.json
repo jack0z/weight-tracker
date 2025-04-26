@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "netlify dev",
     "start": "netlify dev",
-    "build": "netlify build"
+    "build": "next build"
   },
   "dependencies": {
     "mongoose": "^7.4.0",
