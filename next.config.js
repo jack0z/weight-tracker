@@ -18,17 +18,7 @@ const nextConfig = {
   },
   // Completely disable app directory scanning
   useFileSystemPublicRoutes: true,
-  pageExtensions: ['js', 'jsx'],
-  // Ensure _redirects file is copied to the output directory
-  async redirects() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: '/.netlify/functions/:path*',
-        permanent: true,
-      }
-    ];
-  }
+  pageExtensions: ['js', 'jsx']
 }
 
 module.exports = nextConfig 
