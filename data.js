@@ -206,7 +206,5 @@ export {
   loadEntries,
   saveEntries,
   loadSettings,
-  saveSetting,
-  addEntry,
-  deleteEntry
+  saveSetting
 }; 
