@@ -69,31 +69,8 @@ function saveSetting(key, value) {
 }
 
 // Format entries array for display
-export function formatEntries(entries, dateFormat) {
-  if (!entries || !Array.isArray(entries) || entries.length === 0) {
-    return [];
-  }
-  
-  // Sort entries by date, newest first
-  const sortedEntries = [...entries].sort((a, b) => {
-    return new Date(b.date) - new Date(a.date);
-  });
-  
-  // Format entries for display
-  return sortedEntries.map(entry => {
-    // Create a date object from the entry date
-    const dateObj = new Date(entry.date);
-    
-    return {
-      id: entry._id || entry.id,
-      date: entry.date,
-      dateObj,
-      dateFormatted: format(dateObj, 'yyyy-MM-dd'),
-      dayFormatted: format(dateObj, 'EEEE'),
-      weight: parseFloat(entry.weight)
-    };
-  });
-}
+
+
 
 // Add a new entry
 export async function addEntry(date, weight, existingEntries = [], userId = null) {
@@ -230,7 +207,6 @@ export {
   saveEntries,
   loadSettings,
   saveSetting,
-  formatEntries,
   addEntry,
   deleteEntry
 }; 
