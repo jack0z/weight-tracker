@@ -14,25 +14,18 @@ const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
  * View-only mode component for shared weight tracker data
  *
  * @param {Object} props - Component props
- * @param {Array} props.entries - Weight entries
- * @param {string|number} props.startWeight - Starting weight
- * @param {string|number} props.goalWeight - Goal weight
- * @param {string|number} props.height - User height
- * @param {string} props.theme - Current theme
- * @param {string} props.sharedBy - Username who shared the data
+ * @param {string} props.shareId - Share ID
  * @param {function} props.onThemeToggle - Function to toggle theme
  * @param {function} props.onExit - Function to exit view mode
  */
 export default function ViewMode({ 
-  entries, 
-  startWeight, 
-  goalWeight, 
-  height, 
-  theme, 
-  sharedBy,
+  shareId,
   onThemeToggle,
   onExit
 }) {
+  const [viewData, setViewData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [formattedEntries, setFormattedEntries] = useState([]);
   const [chartData, setChartData] = useState({
     options: {
@@ -53,24 +46,52 @@ export default function ViewMode({
     setIsClient(true);
   }, []);
 
+  // Fetch shared data
+  useEffect(() => {
+    async function fetchSharedData() {
+      try {
+        const result = await fetch(`/.netlify/functions/database/shares/${shareId}`);
+        
+        if (!result.ok) {
+          throw new Error('Failed to load shared data');
+        }
+        
+        const data = await result.json();
+        
+        if (data.success) {
+          setViewData(data.data);
+        } else {
+          setError(data.message || 'Failed to load shared data');
+        }
+      } catch (error) {
+        console.error("Error loading shared view:", error);
+        setError('Network error while loading shared data');
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchSharedData();
+  }, [shareId]);
+
   // Define colors based on theme
   const colors = {
-    bg: theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#F3EAD3]',
-    cardBg: theme === 'dark' ? 'bg-[#313338]' : 'bg-[#EAE4CA]',
-    border: theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]',
-    text: theme === 'dark' ? 'text-[#e3e5e8]' : 'text-[#5C6A72]',
-    textMuted: theme === 'dark' ? 'text-[#b5bac1]' : 'text-[#829181]',
-    buttonBgPrimary: theme === 'dark' ? 'bg-[#5865f2] hover:bg-[#4752c4]' : 'bg-[#8DA101] hover:bg-[#798901]',
-    buttonBgSecondary: theme === 'dark' ? 'bg-[#4f545c] hover:bg-[#5d6269]' : 'bg-[#939F91] hover:bg-[#8A948C]',
-    positive: theme === 'dark' ? 'text-[#57f287]' : 'text-[#126134]',
-    negative: theme === 'dark' ? 'text-[#ed4245]' : 'text-[#F85552]',
+    bg: viewData?.theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#F3EAD3]',
+    cardBg: viewData?.theme === 'dark' ? 'bg-[#313338]' : 'bg-[#EAE4CA]',
+    border: viewData?.theme === 'dark' ? 'border-[#1e1f22]' : 'border-[#DDD8BE]',
+    text: viewData?.theme === 'dark' ? 'text-[#e3e5e8]' : 'text-[#5C6A72]',
+    textMuted: viewData?.theme === 'dark' ? 'text-[#b5bac1]' : 'text-[#829181]',
+    buttonBgPrimary: viewData?.theme === 'dark' ? 'bg-[#5865f2] hover:bg-[#4752c4]' : 'bg-[#8DA101] hover:bg-[#798901]',
+    buttonBgSecondary: viewData?.theme === 'dark' ? 'bg-[#4f545c] hover:bg-[#5d6269]' : 'bg-[#939F91] hover:bg-[#8A948C]',
+    positive: viewData?.theme === 'dark' ? 'text-[#57f287]' : 'text-[#126134]',
+    negative: viewData?.theme === 'dark' ? 'text-[#ed4245]' : 'text-[#F85552]',
   };
 
   // Format entries and prepare chart data
   useEffect(() => {
-    if (entries && entries.length > 0) {
+    if (viewData && viewData.entries && viewData.entries.length > 0) {
       // Format entries for display
-      const formatted = entries.map(e => ({
+      const formatted = viewData.entries.map(e => ({
         ...e,
         dateFormatted: format(new Date(e.date), "MMM d, yyyy"),
         dayFormatted: format(new Date(e.date), "EEEE"),
@@ -91,7 +112,7 @@ export default function ViewMode({
             background: 'transparent',
             fontFamily: 'Inter, sans-serif',
           },
-          colors: theme === 'dark' ? ['#5865f2'] : ['#8DA101'],
+          colors: viewData.theme === 'dark' ? ['#5865f2'] : ['#8DA101'],
           dataLabels: {
             enabled: false
           },
@@ -109,7 +130,7 @@ export default function ViewMode({
             }
           },
           grid: {
-            borderColor: theme === 'dark' ? '#1e1f22' : '#e5e7eb',
+            borderColor: viewData.theme === 'dark' ? '#1e1f22' : '#e5e7eb',
             strokeDashArray: 3,
             row: {
               colors: ['transparent'],
@@ -126,7 +147,7 @@ export default function ViewMode({
             categories: [...formatted].reverse().map(e => e.date),
             labels: {
               style: {
-                colors: theme === 'dark' ? '#b5bac1' : '#6b7280',
+                colors: viewData.theme === 'dark' ? '#b5bac1' : '#6b7280',
               },
               format: 'MMM dd',
             }
@@ -134,13 +155,13 @@ export default function ViewMode({
           yaxis: {
             labels: {
               style: {
-                colors: theme === 'dark' ? '#b5bac1' : '#6b7280',
+                colors: viewData.theme === 'dark' ? '#b5bac1' : '#6b7280',
               },
               formatter: (value) => `${value} kg`
             },
           },
           tooltip: {
-            theme: theme === 'dark' ? 'dark' : 'light',
+            theme: viewData.theme === 'dark' ? 'dark' : 'light',
             x: {
               format: 'MMM dd, yyyy'
             },
@@ -157,34 +178,34 @@ export default function ViewMode({
       
       setChartData(chartConfig);
     }
-  }, [entries, theme]);
+  }, [viewData, viewData.theme]);
 
   // Add an effect to forcibly apply theme when it changes
   useEffect(() => {
     if (!isClient) return;
     
     // Apply theme to document directly in the component
-    if (theme === "dark") {
+    if (viewData?.theme === "dark") {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
     }
-  }, [theme, isClient]);
+  }, [viewData?.theme, isClient]);
 
   // Get trend icon
   const getTrendIcon = (value) => {
     if (!value || value === 0) return <Minus className={`h-4 w-4 ${colors.textMuted}`} />;
     return value < 0 ? 
-      <TrendingDown className={`h-4 w-4 ${theme === 'dark' ? 'text-[#57f287]' : 'text-[#126134]'}`} /> : 
+      <TrendingDown className={`h-4 w-4 ${viewData?.theme === 'dark' ? 'text-[#57f287]' : 'text-[#126134]'}`} /> : 
       <TrendingUp className={`h-4 w-4 ${colors.negative}`} />;
   };
 
   // Calculate BMI if both weight and height are available
   const calculateBMI = () => {
-    if (!height || !entries || entries.length === 0) return null;
+    if (!viewData?.height || !viewData.entries || viewData.entries.length === 0) return null;
     
-    const latestWeight = entries[0].weight;
-    const heightM = parseFloat(height) / 100;
+    const latestWeight = viewData.entries[0].weight;
+    const heightM = parseFloat(viewData.height) / 100;
     return (latestWeight / (heightM * heightM)).toFixed(1);
   };
 
@@ -198,14 +219,44 @@ export default function ViewMode({
 
   // Calculate weight ranges and distribution
   const getWeightRanges = () => {
-    if (!entries || entries.length < 5) return [];
-    return Stats.getWeightRanges(entries);
+    if (!viewData.entries || viewData.entries.length < 5) return [];
+    return Stats.getWeightRanges(viewData.entries);
   };
   
   const getWeightDistribution = () => {
-    if (!entries || entries.length < 5) return [];
-    return Stats.getWeightDistribution(entries);
+    if (!viewData.entries || viewData.entries.length < 5) return [];
+    return Stats.getWeightDistribution(viewData.entries);
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#2b2d31] text-[#e3e5e8] flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-xl font-semibold mb-4">Loading Shared Data...</h1>
+          <p className="opacity-70 mb-4">Please wait while we load the shared weight tracker.</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#2b2d31] text-[#e3e5e8] flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-xl font-semibold mb-4">Error Loading Shared Data</h1>
+          <p className="opacity-70 mb-4">{error}</p>
+          <button
+            onClick={onExit}
+            className="bg-[#5865f2] px-4 py-2 rounded-md text-white"
+          >
+            Return to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${colors.bg} ${colors.text} p-3 sm:p-4 md:p-6`}>
@@ -213,9 +264,9 @@ export default function ViewMode({
         position="top-right" 
         toastOptions={{
           style: {
-            background: theme === 'dark' ? "#313338" : "#ffffff",
-            color: theme === 'dark' ? "#e3e5e8" : "#374151",
-            border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+            background: viewData?.theme === 'dark' ? "#313338" : "#ffffff",
+            color: viewData?.theme === 'dark' ? "#e3e5e8" : "#374151",
+            border: `1px solid ${viewData?.theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
             boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.2)"
           }
         }}
@@ -223,21 +274,21 @@ export default function ViewMode({
       
       <div className="max-w-6xl mx-auto">
         {/* Header with info and controls */}
-        <div className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mb-4 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+        <div className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-0 mb-4 ${viewData?.theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
           <div className="flex items-center gap-1 mb-2 sm:mb-0">
-            <h2 className={`text-lg sm:text-xl md:text-2xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+            <h2 className={`text-lg sm:text-xl md:text-2xl font-semibold ${viewData?.theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
               Weight Tracker
             </h2>
-            <span className={`ml-2 text-xs sm:text-sm ${colors.textMuted}`}>(Shared by {sharedBy})</span>
+            <span className={`ml-2 text-xs sm:text-sm ${colors.textMuted}`}>(Shared by {viewData?.sharedBy})</span>
           </div>
           
           <div className="flex items-center self-end sm:self-auto">
             <button
               onClick={onThemeToggle}
-              className={`p-2 rounded-full ${theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
-              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              className={`p-2 rounded-full ${viewData?.theme === 'dark' ? colors.buttonBgSecondary : 'bg-[#8DA101] hover:bg-[#798901]'}`}
+              title={viewData?.theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             >
-              {theme === 'dark' ? (
+              {viewData?.theme === 'dark' ? (
                 <Sun size={16} className="text-white" />
               ) : (
                 <Moon size={16} className="text-white" />
@@ -254,7 +305,7 @@ export default function ViewMode({
             </CardHeader>
             <CardContent className="py-4 px-2 sm:py-6 sm:px-6">
               <div className="h-[250px] sm:h-[300px]">
-                {entries && entries.length > 0 ? (
+                {viewData && viewData.entries && viewData.entries.length > 0 ? (
                   typeof window !== 'undefined' ? 
                     <Chart 
                       options={chartData.options} 
@@ -274,40 +325,40 @@ export default function ViewMode({
           </Card>
           
           {/* Summary Card - If data available */}
-          {entries && entries.length > 0 && (
+          {viewData && viewData.entries && viewData.entries.length > 0 && (
             <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
               <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
                 <CardTitle className={`${colors.text} text-base sm:text-lg`}>Summary</CardTitle>
               </CardHeader>
               <CardContent className={`py-4 px-3 sm:py-6 sm:px-6`}>
                 <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-4">
-                  <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
+                  <div className={`${viewData.theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
                     <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">Current</div>
-                    <div className={`text-lg sm:text-xl font-bold ${colors.text}`}>{entries[0].weight} kg</div>
+                    <div className={`text-lg sm:text-xl font-bold ${colors.text}`}>{viewData.entries[0].weight} kg</div>
                   </div>
                   
-                  {goalWeight && (
-                    <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
+                  {viewData.goalWeight && (
+                    <div className={`${viewData.theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
                       <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">Goal</div>
-                      <div className={`text-lg sm:text-xl font-bold ${colors.text}`}>{goalWeight} kg</div>
+                      <div className={`text-lg sm:text-xl font-bold ${colors.text}`}>{viewData.goalWeight} kg</div>
                     </div>
                   )}
                   
-                  {startWeight && (
-                    <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
+                  {viewData.startWeight && (
+                    <div className={`${viewData.theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
                       <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">Total Change</div>
                       <div className="flex items-center">
                         <span className={`text-lg sm:text-xl font-bold ${colors.text} mr-1`}>
-                          {(entries[0].weight - startWeight).toFixed(1)} kg
+                          {(viewData.entries[0].weight - viewData.startWeight).toFixed(1)} kg
                         </span>
-                        {getTrendIcon(entries[0].weight - startWeight)}
+                        {getTrendIcon(viewData.entries[0].weight - viewData.startWeight)}
                       </div>
                     </div>
                   )}
                   
                   {/* BMI Card */}
-                  {height && calculateBMI() && (
-                    <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
+                  {viewData.height && calculateBMI() && (
+                    <div className={`${viewData.theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
                       <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">BMI</div>
                       <div className={`text-lg sm:text-xl font-bold ${colors.text}`}>{calculateBMI()}</div>
                       <div className={`text-xs sm:text-sm ${getBMICategory(calculateBMI()).color} mt-1`}>
@@ -330,7 +381,7 @@ export default function ViewMode({
               <div style={{ maxHeight: '350px', overflow: 'auto' }} className="scrollbar-hide">
                 {formattedEntries.length > 0 ? (
                   <Table>
-                    <TableHeader className="sticky top-0 z-10" style={{ background: theme === 'dark' ? '#313338' : '#EAE4CA' }}>
+                    <TableHeader className="sticky top-0 z-10" style={{ background: viewData?.theme === 'dark' ? '#313338' : '#EAE4CA' }}>
                       <TableRow>
                         <TableHead className="text-xs sm:text-sm">Date</TableHead>
                         <TableHead className="text-xs sm:text-sm">Day</TableHead>
@@ -344,7 +395,7 @@ export default function ViewMode({
                         const change = prevEntry ? (entry.weight - prevEntry.weight).toFixed(1) : "--";
                         const changeColor = change !== "--" ? 
                           (parseFloat(change) < 0 ? 
-                            theme === 'dark' ? "text-[#57f287]" : "text-[#126134]"
+                            viewData?.theme === 'dark' ? "text-[#57f287]" : "text-[#126134]"
                             : parseFloat(change) > 0 ? "text-[#ed4245]" : "") 
                           : "";
                         

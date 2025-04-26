@@ -50,16 +50,17 @@ function createSharePackage(entries, startWeight, goalWeight, height, theme, use
 }
 
 /**
- * Generate a shareable link
+ * Generate a shareable link using MongoDB database
  * @param {string} username - Current username
  * @param {Array} entries - Weight entries to share
  * @param {string|number} startWeight - Starting weight
  * @param {string|number} goalWeight - Goal weight
  * @param {string|number} height - User height
  * @param {string} theme - Current theme
- * @returns {Object} - Result object with success status, message, and shareLink if successful
+ * @param {boolean} usePermalink - Whether this is a permalink (never expires)
+ * @returns {Promise<Object>} - Result object with success status, message, and shareLink if successful
  */
-function generateShareLink(username, entries, startWeight, goalWeight, height, theme) {
+async function generateShareLink(username, entries, startWeight, goalWeight, height, theme, usePermalink = false) {
   if (!username) {
     return { success: false, message: "You must be logged in to share your tracker" };
   }
@@ -69,31 +70,178 @@ function generateShareLink(username, entries, startWeight, goalWeight, height, t
   }
   
   try {
-    // Generate a unique ID for sharing
-    const shareId = generateShareId(username);
+    // Call the Netlify function to save the share data in MongoDB
+    const response = await fetch('/.netlify/functions/database/shares', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId: username,
+        entries: entries,
+        startWeight: startWeight,
+        goalWeight: goalWeight,
+        height: height,
+        theme: theme,
+        sharedBy: username,
+        isPermalink: usePermalink
+      })
+    });
     
-    // Create the data package to share
-    const dataToShare = createSharePackage(entries, startWeight, goalWeight, height, theme, username);
+    const result = await response.json();
     
-    // Save to both localStorage (for backward compatibility) and IndexedDB (for cross-device support)
-    localStorage.setItem(`shared_${shareId}`, JSON.stringify(dataToShare));
+    if (!response.ok) {
+      console.error("Error response from share API:", result);
+      return {
+        success: false,
+        message: result.message || "Error generating share link"
+      };
+    }
     
-    // Also save to shared DB collection
-    saveToSharedCollection(shareId, dataToShare);
+    return {
+      success: true,
+      shareLink: result.shareLink,
+      isPermalink: usePermalink
+    };
+  } catch (error) {
+    console.error("Share error:", error);
     
-    // Generate the full URL
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin + window.location.pathname : '';
-    const shareLink = `${baseUrl}?view=${shareId}`;
+    // Fallback to localStorage for offline mode or API failure
+    try {
+      const shareId = `${username.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Math.random().toString(36).substring(2, 10)}`;
+      
+      const shareData = {
+        entries,
+        startWeight,
+        goalWeight,
+        height,
+        theme,
+        sharedBy: username,
+        sharedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        isPermalink: usePermalink
+      };
+      
+      // Save to localStorage as fallback
+      localStorage.setItem(`shared_${shareId}`, JSON.stringify(shareData));
+      
+      const baseUrl = window.location.origin + window.location.pathname;
+      const shareLink = `${baseUrl}?view=${shareId}`;
+      
+      return {
+        success: true,
+        shareLink,
+        isPermalink: usePermalink,
+        isLocal: true
+      };
+    } catch (fallbackError) {
+      console.error("Fallback share error:", fallbackError);
+      return {
+        success: false,
+        message: "Failed to generate share link."
+      };
+    }
+  }
+}
+
+/**
+ * Load a shared view from MongoDB or localStorage
+ * @param {string} shareId - The share ID from the URL
+ * @returns {Promise<Object>} - Result with success status, message, and data if successful
+ */
+async function loadSharedView(shareId) {
+  if (!shareId) {
+    return { success: false, message: "Invalid share link" };
+  }
+  
+  try {
+    // Try to fetch from MongoDB via Netlify function
+    const response = await fetch(`/.netlify/functions/database/shares/${shareId}`);
+    
+    // If the server responded, use that response
+    if (response.ok) {
+      const result = await response.json();
+      
+      if (result.success) {
+        return {
+          success: true,
+          data: result.data
+        };
+      } else {
+        // If server responded but share not found or expired
+        return {
+          success: false,
+          message: result.message || "Share not found or expired"
+        };
+      }
+    }
+    
+    // If network error or server down, fall back to localStorage
+    // This is a fallback for offline usage or when the API is down
+    console.warn("Could not reach the server, falling back to localStorage");
+    
+    const sharedDataStr = localStorage.getItem(`shared_${shareId}`);
+    
+    if (!sharedDataStr) {
+      return { 
+        success: false, 
+        message: "Shared data not found or server unavailable" 
+      };
+    }
+    
+    const sharedData = JSON.parse(sharedDataStr);
+    
+    // Check if locally stored share has expired
+    if (sharedData.expiresAt && new Date(sharedData.expiresAt) < new Date() && !sharedData.isPermalink) {
+      localStorage.removeItem(`shared_${shareId}`);
+      return { 
+        success: false, 
+        message: "This shared link has expired" 
+      };
+    }
     
     return { 
       success: true, 
-      message: "Share link generated successfully", 
-      shareLink,
-      shareId 
+      data: sharedData,
+      isLocal: true
     };
   } catch (error) {
-    console.error("Error generating share link:", error);
-    return { success: false, message: `Failed to generate share link: ${error.message}` };
+    console.error("Error loading shared view:", error);
+    
+    // Final fallback to localStorage
+    try {
+      const sharedDataStr = localStorage.getItem(`shared_${shareId}`);
+      
+      if (!sharedDataStr) {
+        return { 
+          success: false, 
+          message: "Shared data not found" 
+        };
+      }
+      
+      const sharedData = JSON.parse(sharedDataStr);
+      
+      // Check if locally stored share has expired
+      if (sharedData.expiresAt && new Date(sharedData.expiresAt) < new Date() && !sharedData.isPermalink) {
+        localStorage.removeItem(`shared_${shareId}`);
+        return { 
+          success: false, 
+          message: "This shared link has expired" 
+        };
+      }
+      
+      return { 
+        success: true, 
+        data: sharedData,
+        isLocal: true
+      };
+    } catch (fallbackError) {
+      console.error("Fallback error:", fallbackError);
+      return { 
+        success: false, 
+        message: "Error loading shared data" 
+      };
+    }
   }
 }
 
@@ -167,61 +315,6 @@ function saveToSharedCollection(shareId, data) {
     // Fall back to localStorage only if IndexedDB fails
     return Promise.resolve();
   });
-}
-
-/**
- * Check if a shared view is valid
- * @param {string} shareId - The share ID from the URL
- * @returns {Object} - Result with success status, message, and data if successful
- */
-async function loadSharedView(shareId) {
-  if (!shareId) {
-    return { success: false, message: "Invalid share link" };
-  }
-  
-  try {
-    // First try to get from localStorage for backward compatibility
-    const sharedDataStr = localStorage.getItem(`shared_${shareId}`);
-    
-    // If found in localStorage, use that
-    if (sharedDataStr) {
-      const sharedData = JSON.parse(sharedDataStr);
-      
-      // Check if the data has expired
-      if (sharedData.expiresAt && new Date(sharedData.expiresAt) < new Date()) {
-        // Remove expired data
-        localStorage.removeItem(`shared_${shareId}`);
-        deleteFromSharedCollection(shareId);
-        return { success: false, message: "This shared link has expired" };
-      }
-      
-      return { success: true, message: "Shared data loaded successfully", data: sharedData };
-    }
-    
-    // Otherwise try to get from IndexedDB
-    try {
-      const sharedData = await getFromSharedCollection(shareId);
-      
-      if (!sharedData) {
-        return { success: false, message: "Shared data not found or expired" };
-      }
-      
-      // Check if the data has expired
-      if (sharedData.data.expiresAt && new Date(sharedData.data.expiresAt) < new Date()) {
-        // Remove expired data
-        deleteFromSharedCollection(shareId);
-        return { success: false, message: "This shared link has expired" };
-      }
-      
-      return { success: true, message: "Shared data loaded successfully", data: sharedData.data };
-    } catch (error) {
-      console.error("Error loading from IndexedDB:", error);
-      return { success: false, message: "Shared data not found or expired" };
-    }
-  } catch (error) {
-    console.error("Error loading shared view:", error);
-    return { success: false, message: `Error loading shared data: ${error.message}` };
-  }
 }
 
 /**
@@ -423,7 +516,7 @@ if (isBrowser()) {
   setInterval(cleanupExpiredShares, 60 * 60 * 1000);
 }
 
-// Export functions
+// Export all functions at the bottom
 export {
   generateShareLink,
   loadSharedView,

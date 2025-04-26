@@ -1,17 +1,22 @@
 // data.js - Handles data operations for the weight tracker
 
 // Load entries from localStorage
-function loadEntries() {
+function loadEntries(userId) {
   try {
-    console.log("data.js: Loading entries from localStorage");
-    const savedEntries = localStorage.getItem("weight-entries");
-    console.log("data.js: Raw saved entries:", savedEntries ? "Found (length: " + savedEntries.length + ")" : "Not found");
+    console.log("data.js: Loading entries for userId:", userId);
+    if (typeof window === 'undefined') return [];
     
-    if (!savedEntries) return [];
+    const key = userId ? `entries_${userId}` : 'entries';
+    const storedEntries = localStorage.getItem(key);
     
-    const parsedEntries = JSON.parse(savedEntries);
-    console.log("data.js: Parsed entries count:", parsedEntries.length);
-    return parsedEntries;
+    if (!storedEntries) {
+      console.log("data.js: No stored entries found");
+      return [];
+    }
+    
+    const entries = JSON.parse(storedEntries);
+    console.log(`data.js: Loaded ${entries.length} entries`);
+    return entries;
   } catch (error) {
     console.error("data.js: Error loading entries:", error);
     return [];
@@ -19,53 +24,54 @@ function loadEntries() {
 }
 
 // Save entries to localStorage
-function saveEntries(entries) {
+function saveEntries(entries, userId) {
   try {
-    console.log("data.js: Saving entries to localStorage, count:", entries.length);
-    localStorage.setItem("weight-entries", JSON.stringify(entries));
-    return true;
+    if (typeof window === 'undefined') return;
+    
+    const key = userId ? `entries_${userId}` : 'entries';
+    
+    if (entries && Array.isArray(entries)) {
+      console.log(`data.js: Saving ${entries.length} entries for key ${key}`);
+      localStorage.setItem(key, JSON.stringify(entries));
+    } else {
+      console.warn("data.js: Invalid entries to save:", entries);
+    }
   } catch (error) {
     console.error("data.js: Error saving entries:", error);
-    return false;
   }
 }
 
 // Load settings (start weight, goal weight, height)
-function loadSettings() {
+function loadSettings(key, defaultValue, userId) {
   try {
-    console.log("data.js: Loading settings from localStorage");
-    const settings = {
-      startWeight: parseFloat(localStorage.getItem("start-weight")) || "",
-      goalWeight: parseFloat(localStorage.getItem("goal-weight")) || "",
-      height: parseFloat(localStorage.getItem("height")) || ""
-    };
+    if (typeof window === 'undefined') return defaultValue;
     
-    console.log("data.js: Loaded settings:", settings);
-    return settings;
+    const storageKey = userId ? `${key}_${userId}` : key;
+    const storedValue = localStorage.getItem(storageKey);
+    
+    if (storedValue === null) return defaultValue;
+    
+    return JSON.parse(storedValue);
   } catch (error) {
-    console.error("data.js: Error loading settings:", error);
-    return {
-      startWeight: "",
-      goalWeight: "",
-      height: ""
-    };
+    console.error(`data.js: Error loading setting ${key}:`, error);
+    return defaultValue;
   }
 }
 
 // Save a setting to localStorage
-function saveSetting(key, value) {
+function saveSetting(key, value, userId) {
   try {
-    console.log(`data.js: Saving setting ${key}:`, value);
-    localStorage.setItem(key, value);
-    return true;
+    if (typeof window === 'undefined') return;
+    
+    const storageKey = userId ? `${key}_${userId}` : key;
+    localStorage.setItem(storageKey, JSON.stringify(value));
   } catch (error) {
     console.error(`data.js: Error saving setting ${key}:`, error);
-    return false;
   }
 }
 
 // Add a new weight entry
-function addEntry(date, weight, entries) {
+function addEntryLocal(date, weight, entries) {
   try {
     console.log(`data.js: Adding entry - date: ${date}, weight: ${weight}`);
     const newEntry = {
@@ -148,7 +154,63 @@ export {
   saveEntries,
   loadSettings,
   saveSetting,
-  addEntry,
+  addEntryLocal,
   deleteEntry,
   formatEntries
-}; 
+};
+
+export async function syncEntries(userId) {
+  try {
+    const response = await fetch(`/.netlify/functions/database/entries/${userId}`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch entries');
+    }
+    
+    const entries = await response.json();
+    
+    // Update localStorage as backup
+    localStorage.setItem(`entries_${userId}`, JSON.stringify(entries));
+    
+    return entries;
+  } catch (error) {
+    console.error("Error syncing entries:", error);
+    // Fall back to localStorage
+    const localEntries = localStorage.getItem(`entries_${userId}`);
+    return localEntries ? JSON.parse(localEntries) : [];
+  }
+}
+
+export async function addEntry(date, weight, entries, userId) {
+  // Create new entry
+  const newEntry = {
+    id: Date.now().toString(),
+    date: new Date(date).toISOString(),
+    weight: parseFloat(weight)
+  };
+  
+  // Update local entries array
+  const localUpdated = [
+    newEntry,
+    ...entries.filter(entry => entry.date !== date)
+  ].sort((a, b) => new Date(b.date) - new Date(a.date));
+  
+  // Update localStorage as backup
+  localStorage.setItem(`entries_${userId}`, JSON.stringify(localUpdated));
+  
+  // Save to MongoDB
+  try {
+    await fetch('/.netlify/functions/database/entries', {
+      method: 'POST',
+      body: JSON.stringify({
+        userId,
+        date,
+        weight
+      })
+    });
+  } catch (error) {
+    console.error("Error saving to database:", error);
+  }
+  
+  return localUpdated;
+} 

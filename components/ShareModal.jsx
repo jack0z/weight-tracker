@@ -94,10 +94,10 @@ export default function ShareModal({ isOpen, onClose, shareLink, theme }) {
           <div className={`p-3 rounded-md ${colors.noteBg} ${colors.muted} text-sm`}>
             <p className="mb-1">⚠️ Important notes:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>The link expires in 30 days</li>
-              <li>Shared data is stored locally in your browser</li>
+              <li>The link expires in 30 days (unless it's a permanent link)</li>
+              <li>Shared data is securely stored in our database</li>
               <li>Anyone with this link can view your data but cannot edit it</li>
-              <li>Updates to your tracker will be visible to anyone with the link</li>
+              <li>Updates to your tracker will be visible in new shares only</li>
             </ul>
           </div>
         </div>

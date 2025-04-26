@@ -1,6 +1,31 @@
 [build]
-  command = "npm run build"
+  # Directory to change to before starting build
+  base = "./"
+  
+  # Directory that contains the deploy-ready HTML files and assets
   publish = "out"
+  
+  # Default build command
+  command = "npm run build"
+  
+  # Directory with serverless functions
+  functions = "functions"
+
+# Redirects for Netlify functions
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+  
+# Environment variable inheritance
+[build.environment]
+  NODE_VERSION = "18.x"
+
+# Handle SPA routing for Next.js
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
 
 # Handle demo shares by exact path
 [[redirects]]
@@ -19,12 +44,16 @@
   to = "/share-fallback?id=:splat"
   status = 200
 
-# For all other routes, serve the index.html
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
 # Use the Netlify Next.js plugin
 [[plugins]]
-  package = "@netlify/plugin-nextjs" 
+  package = "@netlify/plugin-nextjs"
+
+# Function configuration
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["mongodb"]
+
+# Environment variables with defaults for local development
+[build.environment]
+  # Set a flag to indicate we're using localStorage fallback by default
+  USE_LOCALSTORAGE_FALLBACK = "true" 
