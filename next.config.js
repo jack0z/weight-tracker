@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'export',
+  distDir: 'out',
   images: {
     unoptimized: true,
   },
@@ -10,6 +11,8 @@ const nextConfig = {
   experimental: {
     missingSuspenseWithCSRBailout: false
   },
+  // Add asset prefix for production
+  assetPrefix: process.env.NODE_ENV === 'production' ? '/' : '',
   // Ensure _redirects file is copied to the output directory
   async redirects() {
     return [

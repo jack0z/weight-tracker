@@ -16,6 +16,7 @@
   NODE_VERSION = "18.17.0"
   # Set a flag to indicate we're using MongoDB by default
   USE_LOCALSTORAGE_FALLBACK = "false"
+  NODE_ENV = "production"
 
 # Redirects for Netlify functions
 [[redirects]]
@@ -23,12 +24,23 @@
   to = "/.netlify/functions/:splat"
   status = 200
   
-# Handle SPA routing for Next.js
+# Handle SPA routing for Next.js - force SPA routing
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
   force = true
+
+# Make sure to serve JavaScript and CSS files with the correct MIME type
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Content-Type = "application/javascript"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Content-Type = "text/css"
 
 # Handle demo shares by exact path
 [[redirects]]

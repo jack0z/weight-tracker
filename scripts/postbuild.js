@@ -5,7 +5,7 @@ const path = require('path');
 const redirectsContent = `
 # Netlify redirects for SPA routing
 /api/*  /.netlify/functions/:splat  200
-/*      /index.html                 200
+/*      /index.html                 200!
 `;
 
 try {
@@ -25,6 +25,29 @@ try {
   if (fs.existsSync(netlifyTomlPath)) {
     fs.copyFileSync(netlifyTomlPath, path.join(outDir, 'netlify.toml'));
     console.log('Copied netlify.toml to the output directory');
+  }
+
+  // Copy the _headers file if it exists
+  const headersPath = path.join(process.cwd(), 'public', '_headers');
+  if (fs.existsSync(headersPath)) {
+    fs.copyFileSync(headersPath, path.join(outDir, '_headers'));
+    console.log('Copied _headers to the output directory');
+  }
+
+  // Check if we have a 404.html and copy from index.html if not
+  const notFoundPath = path.join(outDir, '404.html');
+  const indexPath = path.join(outDir, 'index.html');
+  if (fs.existsSync(indexPath) && !fs.existsSync(notFoundPath)) {
+    fs.copyFileSync(indexPath, notFoundPath);
+    console.log('Created 404.html from index.html');
+  }
+
+  // Copy a special fallback file that only redirects instead of trying to execute JS
+  const staticIndexPath = path.join(process.cwd(), 'public', 'index.html');
+  const fallbackPath = path.join(outDir, 'fallback.html');
+  if (fs.existsSync(staticIndexPath)) {
+    fs.copyFileSync(staticIndexPath, fallbackPath);
+    console.log('Created fallback.html from static index.html');
   }
 
   console.log('Post-build tasks completed successfully');
