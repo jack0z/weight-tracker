@@ -28,6 +28,7 @@
   from = "/*"
   to = "/index.html"
   status = 200
+  force = true
 
 # Handle demo shares by exact path
 [[redirects]]
