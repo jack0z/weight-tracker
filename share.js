@@ -62,7 +62,10 @@ function createSharePackage(entries, startWeight, goalWeight, height, theme, use
  */
 async function generateShareLink(username, entries, startWeight, goalWeight, height, theme, usePermalink = false) {
   if (!username) {
-    return { success: false, message: "You must be logged in to share your tracker" };
+    return {
+      success: false,
+      message: "User is not logged in"
+    };
   }
   
   if (!entries || entries.length === 0) {
@@ -71,7 +74,7 @@ async function generateShareLink(username, entries, startWeight, goalWeight, hei
   
   try {
     // Call the Netlify function to save the share data in MongoDB
-    const response = await fetch('/.netlify/functions/database/shares', {
+    const response = await fetch('/.netlify/functions/database/weight-entries', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -156,7 +159,7 @@ async function loadSharedView(shareId) {
   
   try {
     // Try to fetch from MongoDB via Netlify function
-    const response = await fetch(`/.netlify/functions/database/shares/${shareId}`);
+    const response = await fetch(`/.netlify/functions/database/weight-entries/${shareId}`);
     
     // If the server responded, use that response
     if (response.ok) {

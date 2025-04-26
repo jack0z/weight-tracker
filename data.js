@@ -161,7 +161,7 @@ export {
 
 export async function syncEntries(userId) {
   try {
-    const response = await fetch(`/.netlify/functions/database/entries/${userId}`);
+    const response = await fetch(`/.netlify/functions/database/weight-entries?userId=${userId}`);
     
     if (!response.ok) {
       throw new Error('Failed to fetch entries');
@@ -200,8 +200,11 @@ export async function addEntry(date, weight, entries, userId) {
   
   // Save to MongoDB
   try {
-    await fetch('/.netlify/functions/database/entries', {
+    await fetch('/.netlify/functions/database/weight-entries', {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         userId,
         date,

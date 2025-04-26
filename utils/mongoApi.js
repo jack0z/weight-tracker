@@ -4,7 +4,7 @@
  */
 
 // Base API URL for Netlify functions
-const API_BASE = '/.netlify/functions/database';
+const API_BASE = '/.netlify/functions';
 
 /**
  * API service for weight entry operations
@@ -22,7 +22,7 @@ const mongoApi = {
         throw new Error('User ID is required');
       }
 
-      const response = await fetch(`${API_BASE}/weight-entries?userId=${encodeURIComponent(userId)}`, {
+      const response = await fetch(`${API_BASE}/database/weight-entries?userId=${encodeURIComponent(userId)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -60,7 +60,7 @@ const mongoApi = {
         throw new Error('User ID, date, and weight are required');
       }
 
-      const response = await fetch(`${API_BASE}/weight-entries`, {
+      const response = await fetch(`${API_BASE}/database/weight-entries`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -92,7 +92,7 @@ const mongoApi = {
         throw new Error('Entry ID and User ID are required');
       }
 
-      const response = await fetch(`${API_BASE}/weight-entries`, {
+      const response = await fetch(`${API_BASE}/database/weight-entries`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -124,7 +124,7 @@ const mongoApi = {
         throw new Error('Entry ID and User ID are required');
       }
 
-      const response = await fetch(`${API_BASE}/weight-entries`, {
+      const response = await fetch(`${API_BASE}/database/weight-entries`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
@@ -156,7 +156,7 @@ const mongoApi = {
         throw new Error('User ID is required');
       }
 
-      const response = await fetch(`${API_BASE}/weight-entries?userId=${encodeURIComponent(userId)}&clearAll=true`, {
+      const response = await fetch(`${API_BASE}/database/weight-entries?userId=${encodeURIComponent(userId)}&clearAll=true`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
