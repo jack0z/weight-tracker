@@ -16,6 +16,13 @@ const nextConfig = {
       }
     }
     return config
+  },
+  // Add PostCSS config
+  postcss: {
+    plugins: [
+      'tailwindcss',
+      'autoprefixer',
+    ],
   }
 }
 
