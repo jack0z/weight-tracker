@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build"
+  command = "powershell -Command \"./build.ps1\""
   publish = "out"
 
 [build.environment]
@@ -12,8 +12,8 @@
   package = "@netlify/plugin-nextjs"
 
 [[redirects]]
-  from = "/_next/*"
-  to = "/_next/:splat"
+  from = "/_next/static/*"
+  to = "/_next/static/:splat"
   status = 200
   force = true
 
