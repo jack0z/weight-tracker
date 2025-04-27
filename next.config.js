@@ -12,17 +12,13 @@ const nextConfig = {
         tls: false,
         dns: false,
         child_process: false,
-        'timers/promises': false
+        'timers/promises': false,
+        crypto: false,
+        stream: false,
+        buffer: false
       }
     }
     return config
-  },
-  // Add PostCSS config
-  postcss: {
-    plugins: [
-      'tailwindcss',
-      'autoprefixer',
-    ],
   }
 }
 
