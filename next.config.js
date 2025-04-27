@@ -1,18 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
+  env: {
+    MONGODB_URI: process.env.MONGODB_URI,
+  },
 }
 
 require('dotenv').config();
 
-module.exports = {
-  reactStrictMode: true,
-};
-
-module.exports = {
-  env: {
-    MONGO_URI: process.env.MONGO_URI,
-  },
-};
-
-module.exports = nextConfig 
+module.exports = nextConfig;
