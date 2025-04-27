@@ -1,47 +1,96 @@
 // data.js - Handles data operations for the weight tracker
+import { connectToDatabase } from './lib/mongodb';
 
-// Load entries from localStorage
-function loadEntries() {
+// Load entries from storage (localStorage or MongoDB)
+async function loadEntries() {
   try {
-    console.log("data.js: Loading entries from localStorage");
-    const savedEntries = localStorage.getItem("weight-entries");
-    console.log("data.js: Raw saved entries:", savedEntries ? "Found (length: " + savedEntries.length + ")" : "Not found");
+    console.log("data.js: Loading entries");
     
-    if (!savedEntries) return [];
+    // Try MongoDB first
+    if (typeof window !== 'undefined' && process.env.MONGODB_URI) {
+      const db = await connectToDatabase();
+      const collection = db.collection('entries');
+      const entries = await collection.find({}).toArray();
+      console.log("data.js: Loaded entries from MongoDB:", entries.length);
+      return entries;
+    }
     
-    const parsedEntries = JSON.parse(savedEntries);
-    console.log("data.js: Parsed entries count:", parsedEntries.length);
-    return parsedEntries;
+    // Fallback to localStorage
+    if (typeof window !== 'undefined') {
+      const savedEntries = localStorage.getItem("weight-entries");
+      if (!savedEntries) return [];
+      const parsedEntries = JSON.parse(savedEntries);
+      console.log("data.js: Loaded entries from localStorage:", parsedEntries.length);
+      return parsedEntries;
+    }
+
+    return [];
   } catch (error) {
     console.error("data.js: Error loading entries:", error);
     return [];
   }
 }
 
-// Save entries to localStorage
-function saveEntries(entries) {
+// Save entries to storage
+async function saveEntries(entries) {
+  if (!entries) return false;
+  
   try {
-    console.log("data.js: Saving entries to localStorage, count:", entries.length);
-    localStorage.setItem("weight-entries", JSON.stringify(entries));
-    return true;
+    console.log("data.js: Saving entries, count:", entries.length);
+    
+    // Try MongoDB first
+    if (typeof window !== 'undefined' && process.env.MONGODB_URI) {
+      const db = await connectToDatabase();
+      const collection = db.collection('entries');
+      await collection.deleteMany({});
+      if (entries.length > 0) {
+        await collection.insertMany(entries);
+      }
+      return true;
+    }
+    
+    // Fallback to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem("weight-entries", JSON.stringify(entries));
+      return true;
+    }
+
+    return false;
   } catch (error) {
     console.error("data.js: Error saving entries:", error);
     return false;
   }
 }
 
-// Load settings (start weight, goal weight, height)
-function loadSettings() {
+// Load settings with fallback values
+async function loadSettings() {
   try {
-    console.log("data.js: Loading settings from localStorage");
-    const settings = {
-      startWeight: parseFloat(localStorage.getItem("start-weight")) || "",
-      goalWeight: parseFloat(localStorage.getItem("goal-weight")) || "",
-      height: parseFloat(localStorage.getItem("height")) || ""
-    };
+    console.log("data.js: Loading settings");
     
-    console.log("data.js: Loaded settings:", settings);
-    return settings;
+    const defaultSettings = {
+      startWeight: "",
+      goalWeight: "",
+      height: ""
+    };
+
+    // Try MongoDB first
+    if (typeof window !== 'undefined' && process.env.MONGODB_URI) {
+      const db = await connectToDatabase();
+      const collection = db.collection('settings');
+      const settings = await collection.findOne({});
+      return settings || defaultSettings;
+    }
+    
+    // Fallback to localStorage
+    if (typeof window !== 'undefined') {
+      return {
+        startWeight: parseFloat(localStorage.getItem("start-weight")) || "",
+        goalWeight: parseFloat(localStorage.getItem("goal-weight")) || "",
+        height: parseFloat(localStorage.getItem("height")) || ""
+      };
+    }
+
+    return defaultSettings;
   } catch (error) {
     console.error("data.js: Error loading settings:", error);
     return {
@@ -52,12 +101,32 @@ function loadSettings() {
   }
 }
 
-// Save a setting to localStorage
-function saveSetting(key, value) {
+// Save setting with error handling
+async function saveSetting(key, value) {
+  if (!key) return false;
+  
   try {
     console.log(`data.js: Saving setting ${key}:`, value);
-    localStorage.setItem(key, value);
-    return true;
+    
+    // Try MongoDB first
+    if (typeof window !== 'undefined' && process.env.MONGODB_URI) {
+      const db = await connectToDatabase();
+      const collection = db.collection('settings');
+      await collection.updateOne(
+        {},
+        { $set: { [key]: value } },
+        { upsert: true }
+      );
+      return true;
+    }
+    
+    // Fallback to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(key, value);
+      return true;
+    }
+
+    return false;
   } catch (error) {
     console.error(`data.js: Error saving setting ${key}:`, error);
     return false;
@@ -151,4 +220,4 @@ export {
   addEntry,
   deleteEntry,
   formatEntries
-}; 
+};
