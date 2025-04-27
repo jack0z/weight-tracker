@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "postbuild": "powershell -Command \"New-Item -ItemType Directory -Force -Path out\\_next\\static\\fonts; Copy-Item -Path public\\fonts\\* -Destination out\\_next\\static\\fonts -Force\"",
+    "postbuild": "mkdir -p out/_next/static/fonts && cp -r public/fonts/* out/_next/static/fonts/",
     "start": "next start",
     "lint": "next lint"
   },
