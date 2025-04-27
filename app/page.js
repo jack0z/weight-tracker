@@ -1,22 +1,13 @@
 'use client'
 
 import WeightTracker from '../app.js'
-import { useEffect } from 'react'
+import Debug from '@/components/Debug'
 
 export default function Home() {
-  useEffect(() => {
-    console.log('Page mounted')
-    console.log('Environment:', process.env.NODE_ENV)
-    console.log('Base path:', process.env.NEXT_PUBLIC_BASE_PATH)
-  }, [])
-
   return (
-    <div>
-      <div id="debug-info" style={{display: 'none'}}>
-        <p>Build time: {new Date().toISOString()}</p>
-        <p>Environment: {process.env.NODE_ENV}</p>
-      </div>
+    <>
+      {process.env.NODE_ENV !== 'production' && <Debug />}
       <WeightTracker />
-    </div>
+    </>
   )
 }

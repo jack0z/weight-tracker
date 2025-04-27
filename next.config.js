@@ -7,11 +7,18 @@ const nextConfig = {
   env: {
     MONGODB_URI: process.env.MONGODB_URI,
   },
-  assetPrefix: '/',
   basePath: '',
-  experimental: {
-    appDir: true,
-  }
+  assetPrefix: process.env.NODE_ENV === 'production' ? '/' : '',
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+      crypto: false,
+    };
+    return config;
+  },
 }
 
 require('dotenv').config()

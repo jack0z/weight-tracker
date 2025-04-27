@@ -6,28 +6,23 @@
   NEXT_USE_NETLIFY_EDGE = "true"
   NODE_VERSION = "18"
   NETLIFY_NEXT_PLUGIN_SKIP = "true"
-  NEXT_PUBLIC_BASE_PATH = ""
+  NODE_ENV = "production"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Handle Next.js static files
 [[redirects]]
-  from = "/_next/static/*"
-  to = "/_next/static/:splat"
+  from = "/_next/*"
+  to = "/_next/:splat"
   status = 200
   force = true
 
-# Handle Next.js page data
-[[redirects]]
-  from = "/_next/data/*"
-  to = "/_next/data/:splat"
-  status = 200
-  force = true
-
-# Handle all other routes
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
   force = true
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"

@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && cp -r public/fonts out/_next/static/",
+    "build": "next build && xcopy /E /I /Y public\\fonts out\\_next\\static\\fonts",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "debug": "cross-env NODE_OPTIONS='--inspect' next dev",
+    "netlify-build": "next build && next export"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.0.2",
@@ -29,6 +31,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.16",
+    "cross-env": "^7.0.3",
     "daisyui": "^4.4.19",
     "eslint": "^8.55.0",
     "eslint-config-next": "^14.0.4",
