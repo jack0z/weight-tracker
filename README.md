@@ -4,7 +4,7 @@ A simple yet powerful weight tracking application built with React and ApexChart
 
 ## Features
 
-- **Weight Tracking**: Log your weight with dates and see your progress over time
+over time
 - **Visual Analytics**: Interactive charts that display your weight trend
 - **Smart Statistics**: 7-day, 14-day, and 30-day averages and change calculations
 - **Weight Distribution**: See how your weight is distributed across ranges
