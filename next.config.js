@@ -7,14 +7,17 @@ const nextConfig = {
   env: {
     MONGODB_URI: process.env.MONGODB_URI,
   },
-  // Add basePath configuration
   basePath: '',
-  // Disable server-side features
   experimental: {
     appDir: true,
   },
-  // Configure asset prefix for Netlify
-  assetPrefix: process.env.NODE_ENV === 'production' ? '/' : '',
+  assetPrefix: './',
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      console.log('Webpack client config:', config.output)
+    }
+    return config
+  }
 }
 
 require('dotenv').config()
