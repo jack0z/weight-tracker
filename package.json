@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && mkdir -p out/_next/static/fonts && cp -r public/fonts/* out/_next/static/fonts/",
+    "build": "next build",
+    "postbuild": "powershell -Command \"New-Item -ItemType Directory -Force -Path out\\_next\\static\\fonts; Copy-Item -Path public\\fonts\\* -Destination out\\_next\\static\\fonts -Force\"",
     "start": "next start",
     "lint": "next lint"
   },
@@ -19,6 +20,8 @@
     "dotenv": "^16.5.0",
     "lucide-react": "^0.298.0",
     "mongodb": "^6.16.0",
+    "mongoose": "^8.0.0",
+    "@netlify/plugin-nextjs": "^4.41.3",
     "next": "^14.0.4",
     "papaparse": "^5.5.2",
     "postcss": "^8.4.32",
