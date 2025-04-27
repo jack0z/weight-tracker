@@ -5,7 +5,7 @@
  * @returns {boolean} - Whether IndexedDB is supported
  */
 function isIndexedDBSupported() {
-  return window.indexedDB !== undefined && window.indexedDB !== null;
+  return typeof window !== 'undefined' && window.indexedDB !== undefined && window.indexedDB !== null;
 }
 
 /**

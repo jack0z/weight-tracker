@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Input } from "./components/ui/input";
-import { Button } from "./components/ui/button";
 import { format as dateFormat, parseISO, subDays, addDays } from "date-fns";
 import { Trash2, Save, TrendingDown, TrendingUp, Minus, Download, Calendar, ArrowRight, LogOut, Sun, Moon, Share2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
@@ -15,7 +14,7 @@ import * as Data from './data.js';
 import * as Stats from './stats.js';
 import * as ChartUtils from './chart.js';
 import * as Export from './export.js';
-import * as UI from './ui.js';
+
 import * as Auth from './auth.js';
 import * as Share from './share.js';
 
