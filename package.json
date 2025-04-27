@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && powershell -Command \"Copy-Item -Path 'public\\fonts' -Destination 'out\\_next\\static\\fonts' -Recurse -Force\"",
+    "build": "next build && mkdir -p out/_next/static/fonts && cp -r public/fonts/* out/_next/static/fonts/",
     "start": "next start",
     "lint": "next lint",
     "clean": "powershell -Command \"Remove-Item -Recurse -Force .next, out, node_modules -ErrorAction SilentlyContinue\"",

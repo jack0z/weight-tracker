@@ -1,5 +1,5 @@
 [build]
-  command = "powershell -Command \"./build.ps1\""
+  command = "npm run build"
   publish = "out"
 
 [build.environment]
