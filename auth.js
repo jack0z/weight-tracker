@@ -180,4 +180,32 @@ export function clearUserData(username) {
   } catch (error) {
     console.error("Error clearing user data:", error);
   }
-} 
+}
+
+/**
+ * Handles user registration
+ * @param {string} username - The username to register
+ * @param {string} password - The password to register
+ * @returns {Promise<Object>} The result of the registration attempt
+ */
+export async function handleRegister(username, password) {
+  try {
+    const response = await fetch('/.netlify/functions/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Registration error:', error);
+    throw error;
+  }
+}
