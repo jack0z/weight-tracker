@@ -18,61 +18,61 @@ export function checkExistingLogin() {
 }
 
 /**
- * Handles user login
+ * Handles user login or registration
  * @param {string} username - The username to log in with
  * @param {string} password - The password to authenticate with
  * @param {boolean} registering - Whether the user is in registration mode
- * @returns {Object} Results of the login attempt
+ * @returns {Object} Results of the login or registration attempt
  */
-export function handleLogin(username, password, registering) {
+export async function handleLogin(username, password, registering) {
   if (!username || !password) {
     toast.error("Please enter username and password");
     return { success: false, message: "Missing credentials" };
   }
-  
-  // Check if user exists
-  const userCredentials = localStorage.getItem(`credentials_${username}`);
-  
-  if (userCredentials) {
-    // User exists, verify password
-    const storedPassword = userCredentials;
-    
-    if (password === storedPassword) {
-      // Successful login
-      localStorage.setItem("current-user", username);
+
+  try {
+    if (registering) {
+      const registerResponse = await fetch('/.netlify/functions/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const registerData = await registerResponse.json();
       
-      toast.success(`Welcome back, ${username}!`);
-      return { 
-        success: true, 
-        message: "Login successful", 
-        user: { username } 
-      };
-    } else {
-      // Wrong password
-      toast.error("Incorrect password");
-      return { success: false, message: "Incorrect password" };
+      if (!registerResponse.ok) {
+        toast.error(registerData.message);
+        return { success: false, message: registerData.message };
+      }
+
+      // Auto-login after registration
+      sessionStorage.setItem("current-user", username);
+      toast.success(`Account created! Welcome, ${username}!`);
+      return { success: true, message: "Registration successful", user: { username } };
     }
-  } else if (registering) {
-    // New user registration
-    localStorage.setItem(`credentials_${username}`, password);
-    
-    // Set as logged in
-    localStorage.setItem("current-user", username);
-    
-    toast.success(`Account created! Welcome, ${username}!`);
-    return { 
-      success: true, 
-      message: "Registration successful", 
-      user: { username } 
-    };
-  } else {
-    // User doesn't exist
-    toast.error("User not found. Register a new account?");
-    return { 
-      success: false, 
-      message: "User not found", 
-      shouldRegister: true 
-    };
+
+    // Login flow
+    const loginResponse = await fetch('/.netlify/functions/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    const loginData = await loginResponse.json();
+
+    if (!loginResponse.ok) {
+      toast.error(loginData.message);
+      return { success: false, message: loginData.message };
+    }
+
+    sessionStorage.setItem("current-user", username);
+    toast.success(`Welcome back, ${username}!`);
+    return { success: true, message: "Login successful", user: loginData.user };
+
+  } catch (error) {
+    console.error("Auth error:", error);
+    toast.error("Authentication failed. Please try again.");
+    return { success: false, message: "Authentication failed" };
   }
 }
 
