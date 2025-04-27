@@ -5,7 +5,10 @@ const nextConfig = {
   env: {
     MONGODB_URI: process.env.MONGODB_URI,
   },
-  output: 'standalone',
+  output: 'export',
+  images: {
+    unoptimized: true,
+  },
 }
 
 require('dotenv').config()
