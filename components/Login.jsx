@@ -10,6 +10,48 @@ export default function Login({ onLogin, theme, toggleTheme }) {
   const [password, setPassword] = useState("");
   const [registering, setRegistering] = useState(false);
 
+  const handleRegister = async (username, password) => {
+    try {
+      const response = await fetch("/api/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+  
+      const data = await response.json();
+  
+      if (response.ok) {
+        toast.success(data.message, {
+          style: {
+            background: theme === "dark" ? "#313338" : "#ffffff",
+            color: theme === "dark" ? "#e3e5e8" : "#374151",
+            border: `1px solid ${theme === "dark" ? "#1e1f22" : "#e5e7eb"}`,
+          },
+        });
+      } else {
+        console.log('Error:', data);
+        toast.error(data.message, {
+          style: {
+            background: theme === "dark" ? "#313338" : "#ffffff",
+            color: theme === "dark" ? "#e3e5e8" : "#374151",
+            border: `1px solid ${theme === "dark" ? "#1e1f22" : "#e5e7eb"}`,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Error during registration:", error);
+      toast.error("Failed to register. Please try again.", {
+        style: {
+          background: theme === "dark" ? "#313338" : "#ffffff",
+          color: theme === "dark" ? "#e3e5e8" : "#374151",
+          border: `1px solid ${theme === "dark" ? "#1e1f22" : "#e5e7eb"}`,
+        },
+      });
+    }
+  };
+
   // Override the Auth.handleLogin function to use our themed toasts
   const handleSubmit = () => {
     if (!username || !password) {
@@ -55,22 +97,23 @@ export default function Login({ onLogin, theme, toggleTheme }) {
         });
       }
     } else if (registering) {
+      handleRegister(username, password)
       // New user registration
-      localStorage.setItem(`credentials_${username}`, password);
+      // localStorage.setItem(`credentials_${username}`, password);
       
-      // Set as logged in
-      localStorage.setItem("current-user", username);
+      // // Set as logged in
+      // localStorage.setItem("current-user", username);
       
-      toast.success(`Account created! Welcome, ${username}!`, {
-        style: {
-          background: theme === 'dark' ? "#313338" : "#ffffff",
-          color: theme === 'dark' ? "#e3e5e8" : "#374151",
-          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-        }
-      });
+      // toast.success(`Account created! Welcome, ${username}!`, {
+      //   style: {
+      //     background: theme === 'dark' ? "#313338" : "#ffffff",
+      //     color: theme === 'dark' ? "#e3e5e8" : "#374151",
+      //     border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
+      //   }
+      // });
       
-      // Pass user information back to parent component
-      onLogin({ username });
+      // // Pass user information back to parent component
+      // onLogin({ username });
     } else {
       // User doesn't exist
       toast.error("User not found. Register a new account?", {
