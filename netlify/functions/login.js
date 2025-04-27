@@ -4,6 +4,8 @@ const connectDB = require('../../database/db');
 exports.handler = async function(event, context) {
   context.callbackWaitsForEmptyEventLoop = false;
 
+  console.log('Login attempt received'); // Add logging
+
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
@@ -14,6 +16,7 @@ exports.handler = async function(event, context) {
 
   try {
     const { username, password } = JSON.parse(event.body);
+    console.log('Login attempt for username:', username); // Add logging
     
     if (!username || !password) {
       return {
@@ -27,12 +30,21 @@ exports.handler = async function(event, context) {
     const User = require('../../database/schema/User');
 
     const user = await User.findOne({ username });
+    console.log('User found:', user ? 'yes' : 'no'); // Add logging
     
-    if (!user || user.password !== password) {
+    if (!user) {
       return {
         statusCode: 401,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: "Invalid credentials" })
+        body: JSON.stringify({ message: "User not found" })
+      };
+    }
+
+    if (user.password !== password) {
+      return {
+        statusCode: 401,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: "Invalid password" })
       };
     }
 

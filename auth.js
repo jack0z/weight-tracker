@@ -3,13 +3,13 @@ import { toast } from "sonner";
 import * as Data from './data.js';
 
 /**
- * Checks if user is already logged in based on localStorage
+ * Checks if user is already logged in based on sessionStorage
  * @returns {Object|null} User information if logged in, null otherwise
  */
 export function checkExistingLogin() {
   if (typeof window === 'undefined') return null;
   
-  const savedUser = localStorage.getItem("current-user");
+  const savedUser = sessionStorage.getItem("current-user"); // Changed from localStorage
   if (savedUser) {
     return { username: savedUser };
   }
@@ -45,13 +45,11 @@ export async function handleLogin(username, password, registering) {
         return { success: false, message: registerData.message };
       }
 
-      // Auto-login after registration
       sessionStorage.setItem("current-user", username);
       toast.success(`Account created! Welcome, ${username}!`);
       return { success: true, message: "Registration successful", user: { username } };
     }
 
-    // Login flow
     const loginResponse = await fetch('/.netlify/functions/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -59,6 +57,7 @@ export async function handleLogin(username, password, registering) {
     });
 
     const loginData = await loginResponse.json();
+    console.log('Login response:', loginData); // Add logging
 
     if (!loginResponse.ok) {
       toast.error(loginData.message);
@@ -67,7 +66,7 @@ export async function handleLogin(username, password, registering) {
 
     sessionStorage.setItem("current-user", username);
     toast.success(`Welcome back, ${username}!`);
-    return { success: true, message: "Login successful", user: loginData.user };
+    return { success: true, message: "Login successful", user: { username } };
 
   } catch (error) {
     console.error("Auth error:", error);
@@ -82,10 +81,12 @@ export async function handleLogin(username, password, registering) {
  */
 export function handleLogout() {
   try {
-    localStorage.removeItem("current-user");
+    sessionStorage.removeItem("current-user"); // Changed from localStorage
+    toast.success("Logged out successfully");
     return true;
   } catch (error) {
     console.error("Error during logout:", error);
+    toast.error("Error logging out");
     return false;
   }
 }
