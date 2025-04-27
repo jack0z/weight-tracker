@@ -1,27 +1,41 @@
-const connectDB = require("../../database/db");
-const User = require("../../database/schema/User");
+const mongoose = require('mongoose');
+const connectDB = require('../../database/db');
 
 exports.handler = async function(event, context) {
-  // Only allow POST
+  // Required for MongoDB connection in Netlify Functions
+  context.callbackWaitsForEmptyEventLoop = false;
+
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: "Method not allowed" })
     };
   }
 
   try {
     const { username, password } = JSON.parse(event.body);
-    console.log('Registering', username);
+    
+    if (!username || !password) {
+      return {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: "Username and password are required" })
+      };
+    }
 
     await connectDB();
+    
+    // Get User model after connection is established
+    const User = require('../../database/schema/User');
 
-    // Check if user exists
+    // Check for existing user
     const existingUser = await User.findOne({ username });
     if (existingUser) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ message: "User already exists" })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: "Username already exists" })
       };
     }
 
@@ -31,13 +45,22 @@ exports.handler = async function(event, context) {
 
     return {
       statusCode: 201,
-      body: JSON.stringify({ message: "Account created successfully" })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        message: "Account created successfully",
+        user: { username: newUser.username }
+      })
     };
+
   } catch (error) {
-    console.error("Error during registration:", error);
+    console.error("Registration error:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: "Failed to register. Please try again." })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        message: "Registration failed",
+        error: error.message 
+      })
     };
   }
 };
