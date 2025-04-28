@@ -5,11 +5,7 @@ const nextConfig = {
     unoptimized: true,
   },
   trailingSlash: true,
-  distDir: 'out',
-  // Add this to handle dynamic routes in static export
-  experimental: {
-    missingSuspenseWithCSRError: false
-  }
+  distDir: 'out'
 }
 
 module.exports = nextConfig
