@@ -4,10 +4,15 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Add this to prevent pre-rendering
+  // Disable server components and static generation
   experimental: {
-    // This prevents pre-rendering which causes the document not defined error
     appDir: true,
+  },
+  // Skip specific paths during static generation
+  exportPathMap: async function() {
+    return {
+      '/': { page: '/' }
+    };
   }
 }
 
