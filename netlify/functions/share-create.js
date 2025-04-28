@@ -29,7 +29,7 @@ exports.handler = async (event) => {
     
     // Generate the share link with the correct URL structure
     const baseUrl = process.env.URL || event.headers.host;
-    const shareLink = `${baseUrl}/share/${shareId}/`;
+    const shareLink = `${baseUrl}/#/share/${shareId}`;  // Changed to hash-based routing
     
     // Return success response
     return {
