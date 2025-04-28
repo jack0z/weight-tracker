@@ -3,13 +3,10 @@ const connectDB = require('./database/db');
 const User = require('./database/schema/User');
 
 exports.handler = async function(event, context) {
-  // Prevent function from waiting for connections to close
   context.callbackWaitsForEmptyEventLoop = false;
 
   const headers = {
-    'Access-Control-Allow-Origin': process.env.NODE_ENV === 'development' 
-      ? 'http://localhost:3000' 
-      : 'https://testweight.netlify.app',
+    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Content-Type': 'application/json'
@@ -29,11 +26,10 @@ exports.handler = async function(event, context) {
 
   try {
     const { username, password } = JSON.parse(event.body);
-    console.log('Registering:', username);
+    console.log('Registration attempt for:', username);
 
     await connectDB();
-
-    // Check if user exists
+    
     const existingUser = await User.findOne({ username });
     if (existingUser) {
       return {
@@ -43,7 +39,6 @@ exports.handler = async function(event, context) {
       };
     }
 
-    // Create new user
     const newUser = new User({ username, password });
     await newUser.save();
 
@@ -58,10 +53,7 @@ exports.handler = async function(event, context) {
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ 
-        message: 'Failed to register',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      })
+      body: JSON.stringify({ message: 'Registration failed' })
     };
   }
 };
