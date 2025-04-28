@@ -44,13 +44,16 @@ export async function generateShareLink(username, entries, startWeight, goalWeig
 export async function loadSharedView(shareId) {
   try {
     const response = await fetch(`/.netlify/functions/share-load?shareId=${shareId}`);
-    const result = await response.json();
-    return result;
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to load shared data');
+    }
+    return await response.json();
   } catch (error) {
     console.error('Error loading shared view:', error);
     return {
       success: false,
-      message: 'Failed to load shared data'
+      message: error.message || 'Failed to load shared data'
     };
   }
 }

@@ -6,8 +6,9 @@ exports.handler = async (event) => {
   }
 
   try {
-    // Get share ID from query params
-    const shareId = event.queryStringParameters?.id;
+    // Get share ID from query params - support both id and shareId
+    const shareId = event.queryStringParameters?.shareId || event.queryStringParameters?.id;
+    
     if (!shareId) {
       return {
         statusCode: 400,
@@ -23,11 +24,11 @@ exports.handler = async (event) => {
     const db = client.db('weight-tracker');
     
     // Find the share data
-    const share = await db.collection('shares').findOne({ shareId });
+    const shareData = await db.collection('shares').findOne({ shareId });
     
     await client.close();
 
-    if (!share) {
+    if (!shareData) {
       return {
         statusCode: 404,
         body: JSON.stringify({
@@ -37,22 +38,15 @@ exports.handler = async (event) => {
       };
     }
 
+    // Return the found data
     return {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
-        data: {
-          entries: share.entries,
-          settings: {
-            startWeight: share.startWeight,
-            goalWeight: share.goalWeight,
-            height: share.height,
-            theme: share.theme
-          },
-          sharedBy: share.user
-        }
+        data: shareData
       })
     };
+
   } catch (error) {
     console.error('Share load error:', error);
     return {
