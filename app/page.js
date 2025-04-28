@@ -21,11 +21,17 @@ export default function Home() {
   const handleLogin = async (userData) => {
     setUser(userData);
     if (isMounted && typeof window !== 'undefined') {
-      // Dynamic import of Core module
-      const Core = await import('../core');
-      requestAnimationFrame(() => {
+      // Wait for next frame to ensure DOM is ready
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      
+      // Import and initialize Core
+      try {
+        const Core = await import('../core');
         Core.initWeightTracker();
-      });
+      } catch (error) {
+        console.error('Failed to initialize core:', error);
+        toast.error('Failed to initialize application');
+      }
     }
   };
 
@@ -48,7 +54,16 @@ export default function Home() {
         <Login onLogin={handleLogin} theme={theme} toggleTheme={toggleTheme} />
       ) : (
         <div id="app-container" className="container mx-auto p-4">
-          {/* Core app container */}
+          {/* Add the necessary UI elements that Core.js expects */}
+          <div id="weight-form" className="space-y-4">
+            <input type="number" id="weight" placeholder="Weight" />
+            <input type="date" id="date" />
+          </div>
+          <div id="chart-container"></div>
+          <div id="controls">
+            <button id="export-btn">Export</button>
+            <input type="file" id="import-file" accept=".json" />
+          </div>
         </div>
       )}
     </div>
