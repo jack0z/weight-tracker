@@ -164,6 +164,49 @@ export default function WeightTracker() {
     }
   }, [startWeight, goalWeight, height, isClient, isLoggedIn, currentUser]);
 
+  // Add near the top where other useEffects are
+  useEffect(() => {
+    if (isClient && typeof window !== 'undefined') {
+      // Check for hash-based share URL
+      const hash = window.location.hash;
+      const shareMatch = hash.match(/#\/share\/([\w-]+)/);
+      
+      if (shareMatch) {
+        const shareId = shareMatch[1];
+        // Load shared data
+        (async () => {
+          const result = await Share.loadSharedView(shareId);
+          if (result.success) {
+            setViewMode(true);
+            setSharedData(result.data);
+          } else {
+            toast.error(result.message);
+          }
+        })();
+      }
+    }
+  }, [isClient]);
+
+  useEffect(() => {
+    if (isClient && typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      
+      if (viewParam) {
+        (async () => {
+          const result = await Share.loadSharedView(viewParam);
+          if (result.success) {
+            setViewMode(true);
+            setSharedData(result.data);
+          } else {
+            toast.error(result.message);
+            window.location.href = window.location.origin;
+          }
+        })();
+      }
+    }
+  }, [isClient]);
+
   // Handle user login
   const handleUserLogin = (user) => {
     setIsLoggedIn(true);
@@ -454,26 +497,6 @@ export default function WeightTracker() {
     };
   }
 
-  useEffect(() => {
-    if (isClient && typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const viewParam = urlParams.get('view');
-      
-      if (viewParam) {
-        (async () => {
-          const result = await Share.loadSharedView(viewParam);
-          if (result.success) {
-            setViewMode(true);
-            setSharedData(result.data);
-          } else {
-            toast.error(result.message);
-            window.location.href = window.location.origin;
-          }
-        })();
-      }
-    }
-  }, [isClient]);
-
   // Modify the handleShareLink function
   const handleShareLink = async () => {
     if (!isLoggedIn) {
@@ -536,14 +559,14 @@ export default function WeightTracker() {
     window.location.href = window.location.origin;
   };
 
-  // Show login screen if not logged in
-  if (showLoginForm) {
-    return <Login onLogin={handleUserLogin} theme={theme} toggleTheme={toggleTheme} />;
+  // Modify the existing render logic near the end of the file:
+  // Show login screen if not logged in and not in view mode
+  if (viewMode && sharedData) {
+    return <ViewMode data={sharedData} theme={theme} />;
   }
 
-  // If in view mode, render the ViewMode component
-  if (viewMode && sharedData) {
-    return <ViewMode sharedData={sharedData} theme={theme} />;
+  if (showLoginForm && !viewMode) {
+    return <Login onLogin={handleUserLogin} theme={theme} toggleTheme={toggleTheme} />;
   }
 
   // Color scheme based on theme
