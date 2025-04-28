@@ -1,5 +1,3 @@
-"use client";
-
 import ShareViewClient from './client';
 
 // Server component that handles static params
