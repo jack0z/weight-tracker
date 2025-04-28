@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Login from '../components/Login';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { toast } from 'sonner';
-import * as Core from '../core';
 
 export const dynamic = 'force-static';
 
@@ -14,15 +13,16 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Handle initial mount
   useEffect(() => {
     setIsMounted(true);
     setIsLoading(false);
   }, []);
 
-  const handleLogin = (userData) => {
+  const handleLogin = async (userData) => {
     setUser(userData);
     if (isMounted && typeof window !== 'undefined') {
+      // Dynamic import of Core module
+      const Core = await import('../core');
       requestAnimationFrame(() => {
         Core.initWeightTracker();
       });
@@ -38,7 +38,6 @@ export default function Home() {
     return null;
   }
 
-  // Show loading state after mount but before ready
   if (isLoading) {
     return <LoadingSpinner />;
   }
