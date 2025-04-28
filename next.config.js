@@ -4,16 +4,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Disable server components and static generation
-  experimental: {
-    appDir: true,
-  },
-  // Skip specific paths during static generation
-  exportPathMap: async function() {
-    return {
-      '/': { page: '/' }
-    };
-  }
+  trailingSlash: true,
+  distDir: 'out'
 }
 
 module.exports = nextConfig

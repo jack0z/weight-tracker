@@ -6,6 +6,9 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { toast } from 'sonner';
 import * as Core from '../core';
 
+// Add static generation hint
+export const dynamic = 'force-static';
+
 export default function Home() {
   const [user, setUser] = useState(null);
   const [theme, setTheme] = useState('dark');
