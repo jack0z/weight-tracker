@@ -1,55 +1,52 @@
-const mongoose = require('mongoose');
-const connectDB = require('./database/db');
-const Share = require('./database/schema/Share');
+const { MongoClient } = require('mongodb');
 
-exports.handler = async function(event, context) {
-  context.callbackWaitsForEmptyEventLoop = false;
-
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Content-Type': 'application/json'
-  };
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers };
+exports.handler = async (event) => {
+  // Only allow POST
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
   try {
-    const { username, entries, startWeight, goalWeight, height, theme } = JSON.parse(event.body);
+    // Parse the incoming request body
+    const data = JSON.parse(event.body);
     
-    await connectDB();
+    // Connect to MongoDB
+    const client = await MongoClient.connect(process.env.MONGODB_URI);
+    const db = client.db('weight-tracker');
     
-    const shareId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Generate a unique share ID
+    const shareId = Math.random().toString(36).substring(2, 15);
     
-    const share = new Share({
+    // Store the share data
+    await db.collection('shares').insertOne({
       shareId,
-      sharedBy: username,
-      entries,
-      startWeight,
-      goalWeight,
-      height,
-      theme
+      createdAt: new Date(),
+      ...data
     });
-
-    await share.save();
-
+    
+    // Close MongoDB connection
+    await client.close();
+    
+    // Generate the share link
+    const shareLink = `${process.env.URL || event.headers.host}/share/${shareId}`;
+    
+    // Return success response
     return {
       statusCode: 200,
-      headers,
       body: JSON.stringify({
         success: true,
-        shareLink: `${event.headers.host}?view=${shareId}`
+        shareLink
       })
     };
+    
   } catch (error) {
+    console.error('Share creation error:', error);
+    
     return {
       statusCode: 500,
-      headers,
       body: JSON.stringify({
         success: false,
-        message: 'Failed to create share'
+        message: 'Failed to create share link'
       })
     };
   }

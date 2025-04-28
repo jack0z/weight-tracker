@@ -10,6 +10,7 @@
     "netlify-dev": "netlify dev"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.2",
     "@netlify/functions": "^2.0.0",
     "@radix-ui/react-slot": "^1.0.2",
     "apexcharts": "^4.7.0",

@@ -474,47 +474,61 @@ export default function WeightTracker() {
     }
   }, [isClient]);
 
-  // Generate and share a link
-  const handleShareLink = () => {
+  // Modify the handleShareLink function
+  const handleShareLink = async () => {
     if (!isLoggedIn) {
-      toast.error("You must be logged in to share your tracker", {
-        style: {
-          background: theme === 'dark' ? "#313338" : "#ffffff",
-          color: theme === 'dark' ? "#e3e5e8" : "#374151",
-          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-        }
-      });
+      toast.error("You must be logged in to share your tracker");
       return;
     }
     
-    const result = Share.generateShareLink(
-      currentUser,
-      entries,
-      startWeight,
-      goalWeight,
-      height,
-      theme
-    );
-    
-    console.log('Share result:', result);
-    if (result.success) {
-
-    const shareId = result.shareLink.split('view=')[1];
-    const stored = localStorage.getItem(`share_${shareId}`);
-    console.log('Stored share data:', stored); // Add this line to check the stored data
-      setShareLink(result.shareLink);
-      setShowShareModal(true);
-    } else {
-      toast.error(result.message, {
-        style: {
-          background: theme === 'dark' ? "#313338" : "#ffffff",
-          color: theme === 'dark' ? "#e3e5e8" : "#374151",
-          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-        }
+    try {
+      // Show loading state
+      toast.loading("Generating share link...");
+      
+      // Make POST request to Netlify function
+      const response = await fetch('/.netlify/functions/share-create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user: currentUser,
+          entries: entries,
+          settings: {
+            startWeight,
+            goalWeight,
+            height,
+            theme
+          }
+        })
       });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Clear loading toast
+        toast.dismiss();
+        
+        // Set share link and show modal
+        setShareLink(result.shareLink);
+        setShowShareModal(true);
+        
+        toast.success("Share link generated successfully");
+      } else {
+        throw new Error(result.message || 'Failed to generate share link');
+      }
+      
+    } catch (error) {
+      console.error('Share error:', error);
+      toast.error(error.message || 'Error generating share link');
     }
   };
-  
+
+  // Add debug logging for share modal state
+  useEffect(() => {
+    console.log('Share modal state:', { showShareModal, shareLink });
+  }, [showShareModal, shareLink]);
+
   // Exit view mode
   const handleExitViewMode = () => {
     // Instead of just updating state, fully reload the page
