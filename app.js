@@ -171,41 +171,25 @@ export default function WeightTracker() {
   }, [startWeight, goalWeight, height, isClient, isLoggedIn, currentUser]);
 
   useEffect(() => {
-    const checkRoute = () => {
-      const hash = window.location.hash;
-      const isShareView = hash.includes('/share/');
-      if (isShareView) {
-        setShowLoginForm(false);
-      }
-      setIsRouteChecked(true);
-    };
-
-    checkRoute();
-    window.addEventListener('hashchange', checkRoute);
-    return () => window.removeEventListener('hashchange', checkRoute);
-  }, []);
-
-  useEffect(() => {
-    if (isClient && typeof window !== 'undefined') {
-      // Check for hash-based share URL
+    const checkRouteAndLoadData = async () => {
       const hash = window.location.hash;
       const shareMatch = hash.match(/#\/share\/([\w-]+)/);
       
       if (shareMatch) {
         const shareId = shareMatch[1];
-        // Load shared data
-        (async () => {
-          const result = await Share.loadSharedView(shareId);
-          if (result.success) {
-            setViewMode(true);
-            setSharedData(result.data);
-          } else {
-            toast.error(result.message);
-          }
-        })();
+        const result = await Share.loadSharedView(shareId);
+        if (result.success) {
+          setViewMode(true);
+          setSharedData(result.data);
+          setShowLoginForm(false);
+        }
       }
-    }
-  }, [isClient]);
+      setIsRouteChecked(true);
+      setIsLoading(false);
+    };
+
+    checkRouteAndLoadData();
+  }, []);
 
   useEffect(() => {
     if (isClient && typeof window !== 'undefined') {
@@ -226,15 +210,6 @@ export default function WeightTracker() {
       }
     }
   }, [isClient]);
-
-  useEffect(() => {
-    const hash = window.location.hash;
-    const isShareView = hash.includes('/share/');
-    if (isShareView) {
-      setShowLoginForm(false);
-    }
-    setIsLoading(false);
-  }, []);
 
   // Handle user login
   const handleUserLogin = (user) => {
@@ -588,16 +563,12 @@ export default function WeightTracker() {
     window.location.href = window.location.origin;
   };
 
-  // Modify the existing render logic near the end of the file:
-  // Show login screen if not logged in and not in view mode
-  if (!isRouteChecked) {
-    return null; // Render nothing while checking route
+  // Update the initial render conditions
+  if (!isRouteChecked || isLoading) {
+    return null; // Show nothing while checking route and loading data
   }
 
-  if (isLoading) {
-    return null; // or your loading spinner
-  }
-
+  // Move the viewMode check before the login check
   if (viewMode && sharedData) {
     return <ViewMode 
       data={sharedData} 

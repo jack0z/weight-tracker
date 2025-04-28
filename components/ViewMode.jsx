@@ -131,6 +131,34 @@ export default function ViewMode({ data = {}, theme = 'dark', onThemeToggle }) {
       <TrendingUp className={`h-4 w-4 ${colors.negative}`} />;
   };
 
+  // Update the averages section
+  const getAverages = (entries) => {
+    const periods = [
+      { name: '7-day', days: 7 },
+      { name: '14-day', days: 14 },
+      { name: '30-day', days: 30 }
+    ];
+
+    return periods.map(({ name, days }) => {
+      // Convert date strings to Date objects for calculation
+      const entriesWithDates = entries.map(entry => ({
+        ...entry,
+        dateObj: new Date(entry.date)
+      }));
+
+      // Sort entries by date, newest first
+      const sortedEntries = entriesWithDates.sort((a, b) => b.dateObj - a.dateObj);
+
+      // Calculate average
+      const avg = Stats.calculatePeriodAverage(sortedEntries, days);
+
+      return {
+        period: name,
+        data: avg
+      };
+    });
+  };
+
   return (
     <div className={`min-h-screen ${colors.bg} ${colors.text} p-3 sm:p-4 md:p-6`}>
       <div className="max-w-6xl mx-auto">
@@ -283,21 +311,23 @@ export default function ViewMode({ data = {}, theme = 'dark', onThemeToggle }) {
             </CardHeader>
             <CardContent className="py-4 px-2 sm:py-6 sm:px-6">
               <div className="grid grid-cols-3 gap-4">
-                {[
-                  { period: '7-day', days: 7 },
-                  { period: '14-day', days: 14 },
-                  { period: '30-day', days: 30 }
-                ].map(({ period, days }) => {
-                  const avg = Stats.calculatePeriodAverage(entries, days);
-                  return (
-                    <div key={period} className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
-                      <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">{period}</div>
-                      <div className={`text-lg sm:text-xl font-bold ${colors.text}`}>
-                        {avg.total > 0 ? `${avg.average.toFixed(1)} kg` : 'Not enough entries'}
-                      </div>
+                {getAverages(entries).map(({ period, data }) => (
+                  <div key={period} className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-4 rounded-md`}>
+                    <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">{period}</div>
+                    <div className={`text-lg sm:text-xl font-bold ${colors.text}`}>
+                      {data.hasData ? (
+                        <>
+                          {data.average.toFixed(1)} kg
+                          <div className={`text-sm ${data.value < 0 ? colors.positive : data.value > 0 ? colors.negative : colors.textMuted}`}>
+                            {data.value > 0 ? "+" : ""}{data.value} kg/day
+                          </div>
+                        </>
+                      ) : (
+                        <span className={colors.textMuted}>Calculating...</span>
+                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
