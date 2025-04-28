@@ -54,6 +54,9 @@ export default function WeightTracker() {
 
   // Loading state
   const [isLoading, setIsLoading] = useState(true);
+
+  // Route check state
+  const [isRouteChecked, setIsRouteChecked] = useState(false);
   
   // Toggle theme function
   const toggleTheme = () => {
@@ -167,7 +170,21 @@ export default function WeightTracker() {
     }
   }, [startWeight, goalWeight, height, isClient, isLoggedIn, currentUser]);
 
-  // Add near the top where other useEffects are
+  useEffect(() => {
+    const checkRoute = () => {
+      const hash = window.location.hash;
+      const isShareView = hash.includes('/share/');
+      if (isShareView) {
+        setShowLoginForm(false);
+      }
+      setIsRouteChecked(true);
+    };
+
+    checkRoute();
+    window.addEventListener('hashchange', checkRoute);
+    return () => window.removeEventListener('hashchange', checkRoute);
+  }, []);
+
   useEffect(() => {
     if (isClient && typeof window !== 'undefined') {
       // Check for hash-based share URL
@@ -573,12 +590,20 @@ export default function WeightTracker() {
 
   // Modify the existing render logic near the end of the file:
   // Show login screen if not logged in and not in view mode
+  if (!isRouteChecked) {
+    return null; // Render nothing while checking route
+  }
+
   if (isLoading) {
     return null; // or your loading spinner
   }
 
   if (viewMode && sharedData) {
-    return <ViewMode data={sharedData} theme={theme} />;
+    return <ViewMode 
+      data={sharedData} 
+      theme={theme} 
+      onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} 
+    />;
   }
 
   if (showLoginForm && !viewMode) {

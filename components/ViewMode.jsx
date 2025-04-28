@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { TrendingDown, TrendingUp, Minus, Sun, Moon } from "lucide-react";
 import { format } from "date-fns";
 import dynamic from "next/dynamic";
 import * as Stats from '../stats.js';
@@ -11,7 +11,7 @@ import * as Stats from '../stats.js';
 // Dynamically import ApexCharts
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
-export default function ViewMode({ data = {}, theme = 'dark' }) {
+export default function ViewMode({ data = {}, theme = 'dark', onThemeToggle }) {
   const { 
     entries = [], 
     settings = {},
@@ -135,13 +135,27 @@ export default function ViewMode({ data = {}, theme = 'dark' }) {
     <div className={`min-h-screen ${colors.bg} ${colors.text} p-3 sm:p-4 md:p-6`}>
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className={`flex items-center gap-1 mb-4`}>
-          <h2 className={`text-lg sm:text-xl md:text-2xl font-semibold`}>
-            Weight Tracker
-          </h2>
-          <span className={`ml-2 text-xs sm:text-sm ${colors.textMuted}`}>
-            (Shared by {sharedBy})
-          </span>
+        <div className={`flex justify-between items-center mb-4`}>
+          <div className="flex items-center gap-1">
+            <h2 className={`text-lg sm:text-xl md:text-2xl font-semibold`}>
+              Weight Tracker
+            </h2>
+            <span className={`ml-2 text-xs sm:text-sm ${colors.textMuted}`}>
+              (Shared by {sharedBy})
+            </span>
+          </div>
+          
+          <button
+            onClick={onThemeToggle}
+            className={`p-2 rounded-full ${theme === 'dark' ? 'bg-[#4f545c] hover:bg-[#5d6269]' : 'bg-[#8DA101] hover:bg-[#798901]'}`}
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {theme === 'dark' ? (
+              <Sun size={16} className="text-white" />
+            ) : (
+              <Moon size={16} className="text-white" />
+            )}
+          </button>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6">
@@ -258,6 +272,32 @@ export default function ViewMode({ data = {}, theme = 'dark' }) {
                     })}
                   </TableBody>
                 </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Weight Averages */}
+          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
+            <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
+              <CardTitle className={`${colors.text} text-base sm:text-lg`}>Weight Averages</CardTitle>
+            </CardHeader>
+            <CardContent className="py-4 px-2 sm:py-6 sm:px-6">
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { period: '7-day', days: 7 },
+                  { period: '14-day', days: 14 },
+                  { period: '30-day', days: 30 }
+                ].map(({ period, days }) => {
+                  const avg = Stats.calculatePeriodAverage(entries, days);
+                  return (
+                    <div key={period} className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
+                      <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">{period}</div>
+                      <div className={`text-lg sm:text-xl font-bold ${colors.text}`}>
+                        {avg.total > 0 ? `${avg.average.toFixed(1)} kg` : 'Not enough entries'}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
