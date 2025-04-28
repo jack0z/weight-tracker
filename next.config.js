@@ -4,22 +4,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  trailingSlash: true,
-  distDir: '.next',
-  assetPrefix: '/',
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.fallback = {
-        fs: false,
-        net: false,
-        tls: false,
-        dns: false,
-        child_process: false,
-        'timers/promises': false
-      }
-    }
-    return config
-  }
+  // Disable API routes since we're using Netlify Functions
+  rewrites: async () => [],
 }
 
 module.exports = nextConfig

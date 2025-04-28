@@ -1,41 +1,45 @@
 const mongoose = require('mongoose');
-const connectDB = require('../../database/db');
+const connectDB = require('./database/db');
+const User = require('./database/schema/User');
 
 exports.handler = async function(event, context) {
-  // Required for MongoDB connection in Netlify Functions
+  // Prevent function from waiting for connections to close
   context.callbackWaitsForEmptyEventLoop = false;
 
-  if (event.httpMethod !== "POST") {
+  const headers = {
+    'Access-Control-Allow-Origin': process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:3000' 
+      : 'https://testweight.netlify.app',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Content-Type': 'application/json'
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers };
+  }
+
+  if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: "Method not allowed" })
+      headers,
+      body: JSON.stringify({ message: 'Method not allowed' })
     };
   }
 
   try {
     const { username, password } = JSON.parse(event.body);
-    
-    if (!username || !password) {
-      return {
-        statusCode: 400,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: "Username and password are required" })
-      };
-    }
+    console.log('Registering:', username);
 
     await connectDB();
-    
-    // Get User model after connection is established
-    const User = require('../../database/schema/User');
 
-    // Check for existing user
+    // Check if user exists
     const existingUser = await User.findOne({ username });
     if (existingUser) {
       return {
         statusCode: 400,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: "Username already exists" })
+        headers,
+        body: JSON.stringify({ message: 'User already exists' })
       };
     }
 
@@ -45,21 +49,18 @@ exports.handler = async function(event, context) {
 
     return {
       statusCode: 201,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        message: "Account created successfully",
-        user: { username: newUser.username }
-      })
+      headers,
+      body: JSON.stringify({ message: 'Account created successfully' })
     };
 
   } catch (error) {
-    console.error("Registration error:", error);
+    console.error('Registration error:', error);
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ 
-        message: "Registration failed",
-        error: error.message 
+        message: 'Failed to register',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       })
     };
   }
