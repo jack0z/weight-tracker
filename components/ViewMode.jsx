@@ -144,8 +144,124 @@ export default function ViewMode({ data = {}, theme = 'dark' }) {
           </span>
         </div>
 
-        {/* Rest of your return JSX - same as original but using formattedEntries */}
-        {/* ... */}
+        <div className="grid grid-cols-1 gap-4 sm:gap-6">
+          {/* Weight Chart */}
+          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
+            <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
+              <CardTitle className={`${colors.text} text-base sm:text-lg`}>Weight Chart</CardTitle>
+            </CardHeader>
+            <CardContent className="py-4 px-2 sm:py-6 sm:px-6">
+              <div className="h-[250px] sm:h-[300px]">
+                {isClient && (
+                  <Chart 
+                    options={chartConfig.options} 
+                    series={chartConfig.series} 
+                    type="area" 
+                    height="100%"
+                  />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Summary Card */}
+          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
+            <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
+              <CardTitle className={`${colors.text} text-base sm:text-lg`}>Summary</CardTitle>
+            </CardHeader>
+            <CardContent className={`py-4 px-3 sm:py-6 sm:px-6`}>
+              <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-4">
+                <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
+                  <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">Current</div>
+                  <div className={`text-lg sm:text-xl font-bold ${colors.text}`}>
+                    {formattedEntries[0]?.weight || '--'} kg
+                  </div>
+                </div>
+
+                <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
+                  <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">Goal</div>
+                  <div className={`text-lg sm:text-xl font-bold ${colors.text}`}>
+                    {settings.goalWeight || '--'} kg
+                  </div>
+                </div>
+
+                <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
+                  <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">Total Change</div>
+                  <div className="flex items-center">
+                    <span className={`text-lg sm:text-xl font-bold ${colors.text} mr-1`}>
+                      {formattedEntries[0] && settings.startWeight
+                        ? (formattedEntries[0].weight - settings.startWeight).toFixed(1)
+                        : '--'} kg
+                    </span>
+                    {formattedEntries[0] && settings.startWeight && 
+                      getTrendIcon(formattedEntries[0].weight - settings.startWeight)}
+                  </div>
+                </div>
+
+                <div className={`${theme === 'dark' ? 'bg-[#2b2d31]' : 'bg-[#E5DFC5]'} p-3 sm:p-4 rounded-md`}>
+                  <div className="text-xs sm:text-sm text-[#b5bac1] mb-1">BMI</div>
+                  <div className={`text-lg sm:text-xl font-bold ${colors.text}`}>
+                    {formattedEntries[0] && settings.height
+                      ? (formattedEntries[0].weight / Math.pow(settings.height / 100, 2)).toFixed(1)
+                      : '--'}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Weight History Table */}
+          <Card className={`${colors.cardBg} ${colors.border} shadow-xl rounded-lg overflow-hidden`}>
+            <CardHeader className={`border-b ${colors.border} pb-3 pt-4 flex justify-center`}>
+              <CardTitle className={`${colors.text} text-base sm:text-lg`}>
+                Weight History 
+                <span className={`text-xs sm:text-sm ${colors.textMuted} ml-2`}>
+                  ({formattedEntries.length} entries)
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="py-4 px-2 sm:py-6 sm:px-6">
+              <div className="overflow-x-auto max-h-[350px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Day</TableHead>
+                      <TableHead>Weight (kg)</TableHead>
+                      <TableHead>Change</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {formattedEntries.map((entry, index) => {
+                      const prevEntry = formattedEntries[index + 1];
+                      const change = prevEntry 
+                        ? (entry.weight - prevEntry.weight).toFixed(1)
+                        : null;
+                      
+                      return (
+                        <TableRow key={entry.id}>
+                          <TableCell>{entry.dateFormatted}</TableCell>
+                          <TableCell>{entry.dayFormatted}</TableCell>
+                          <TableCell>{entry.weight}</TableCell>
+                          <TableCell className="flex items-center">
+                            {change !== null ? (
+                              <>
+                                <span className={change < 0 ? colors.positive : change > 0 ? colors.negative : ''}>
+                                  {change > 0 ? `+${change}` : change}
+                                </span>
+                                {getTrendIcon(parseFloat(change))}
+                              </>
+                            ) : '--'}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
