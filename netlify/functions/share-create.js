@@ -27,8 +27,9 @@ exports.handler = async (event) => {
     // Close MongoDB connection
     await client.close();
     
-    // Generate the share link
-    const shareLink = `${process.env.URL || event.headers.host}/share/${shareId}`;
+    // Generate the share link with the correct URL structure
+    const baseUrl = process.env.URL || event.headers.host;
+    const shareLink = `${baseUrl}/share/${shareId}/`;
     
     // Return success response
     return {

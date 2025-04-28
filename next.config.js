@@ -6,11 +6,9 @@ const nextConfig = {
   },
   trailingSlash: true,
   distDir: 'out',
-  // Add static HTML shell
-  generateStaticParams: async () => {
-    return [{
-      params: { path: [] }
-    }];
+  // Add this to handle dynamic routes in static export
+  experimental: {
+    missingSuspenseWithCSRError: false
   }
 }
 
