@@ -51,6 +51,9 @@ export default function WeightTracker() {
   const [shareLink, setShareLink] = useState("");
   const [viewMode, setViewMode] = useState(false);
   const [sharedData, setSharedData] = useState(null);
+
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
   
   // Toggle theme function
   const toggleTheme = () => {
@@ -206,6 +209,15 @@ export default function WeightTracker() {
       }
     }
   }, [isClient]);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    const isShareView = hash.includes('/share/');
+    if (isShareView) {
+      setShowLoginForm(false);
+    }
+    setIsLoading(false);
+  }, []);
 
   // Handle user login
   const handleUserLogin = (user) => {
@@ -561,6 +573,10 @@ export default function WeightTracker() {
 
   // Modify the existing render logic near the end of the file:
   // Show login screen if not logged in and not in view mode
+  if (isLoading) {
+    return null; // or your loading spinner
+  }
+
   if (viewMode && sharedData) {
     return <ViewMode data={sharedData} theme={theme} />;
   }

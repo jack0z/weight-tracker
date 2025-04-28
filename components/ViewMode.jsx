@@ -1,27 +1,10 @@
 "use client";
 
-import { Line } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-} from 'chart.js';
+import dynamic from "next/dynamic";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-);
+// Dynamically import ApexCharts with no SSR to avoid hydration issues
+const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 export default function ViewMode({ data = {}, theme = 'dark' }) {
   const { 
@@ -29,111 +12,154 @@ export default function ViewMode({ data = {}, theme = 'dark' }) {
     settings = {}
   } = data || {};
 
-  const { 
-    startWeight = 0, 
-    goalWeight = 0
-  } = settings || {};
-
-  // Sort entries by date in descending order
+  // Sort entries by date
   const sortedEntries = [...entries].sort((a, b) => 
-    new Date(b.date) - new Date(a.date)
+    new Date(a.date) - new Date(b.date)
   );
 
-  // Create chart data with proper configuration
-  const chartData = entries?.length ? {
-    labels: sortedEntries.map(e => new Date(e.date).toLocaleDateString()),
-    datasets: [{
-      label: 'Weight Progress',
-      data: sortedEntries.map(e => e.weight),
-      fill: false,
-      borderColor: theme === 'dark' ? '#5865f2' : '#8DA101',
-      tension: 0.1
-    }]
-  } : null;
-
-  // Chart options with proper scales
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      x: {
-        type: 'category',
-        display: true,
-        title: {
-          display: true,
-          text: 'Date'
+  // Chart configuration
+  const chartConfig = {
+    options: {
+      chart: {
+        type: 'area',
+        height: 300,
+        toolbar: {
+          show: false
+        },
+        animations: {
+          enabled: true
+        },
+        background: 'transparent'
+      },
+      stroke: {
+        curve: 'smooth',
+        width: 2
+      },
+      fill: {
+        type: 'gradient',
+        gradient: {
+          shadeIntensity: 1,
+          opacityFrom: 0.45,
+          opacityTo: 0.05,
+          stops: [50, 100, 100]
         }
       },
-      y: {
-        type: 'linear',
-        display: true,
-        title: {
-          display: true,
-          text: 'Weight (kg)'
-        },
-        min: Math.min(...entries.map(e => e.weight), goalWeight) - 1,
-        max: Math.max(...entries.map(e => e.weight), startWeight) + 1
+      dataLabels: {
+        enabled: false
+      },
+      grid: {
+        borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+        xaxis: {
+          lines: {
+            show: false
+          }
+        }
+      },
+      colors: ['#5865f2'],
+      xaxis: {
+        type: 'datetime',
+        categories: sortedEntries.map(e => new Date(e.date).getTime()),
+        labels: {
+          style: {
+            colors: theme === 'dark' ? '#fff' : '#000'
+          }
+        }
+      },
+      yaxis: {
+        labels: {
+          style: {
+            colors: theme === 'dark' ? '#fff' : '#000'
+          }
+        }
+      },
+      tooltip: {
+        theme: theme === 'dark' ? 'dark' : 'light',
+        x: {
+          format: 'dd MMM yyyy'
+        }
       }
-    }
+    },
+    series: [{
+      name: 'Weight',
+      data: sortedEntries.map(e => e.weight)
+    }]
   };
 
-  // Show loading state if no data
-  if (!data) {
-    return (
-      <div className="container mx-auto p-4 text-center">
-        <p>Loading shared data...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto p-4">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold">Weight Progress Share</h1>
-        <p className="text-gray-500">Shared by {data.user}</p>
-      </div>
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#313338] text-white' : 'bg-white text-black'}`}>
+      <div className="container mx-auto p-4 space-y-4">
+        <Card className={theme === 'dark' ? 'bg-[#2b2d31]' : ''}>
+          <CardHeader>
+            <CardTitle>Weight Chart</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            {typeof window !== 'undefined' && (
+              <Chart 
+                options={chartConfig.options} 
+                series={chartConfig.series} 
+                type="area" 
+                height={300}
+              />
+            )}
+          </CardContent>
+        </Card>
 
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="p-4 rounded-lg border">
-          <h3 className="font-bold">Start Weight</h3>
-          <p>{settings.startWeight || 'Not set'} kg</p>
-        </div>
-        <div className="p-4 rounded-lg border">
-          <h3 className="font-bold">Current Weight</h3>
-          <p>{sortedEntries[0]?.weight || 'No data'} kg</p>
-        </div>
-        <div className="p-4 rounded-lg border">
-          <h3 className="font-bold">Goal Weight</h3>
-          <p>{settings.goalWeight || 'Not set'} kg</p>
-        </div>
-      </div>
-
-      {chartData && (
-        <div className="h-[300px] mb-8">
-          <Line 
-            data={chartData} 
-            options={chartOptions}
-          />
-        </div>
-      )}
-
-      {sortedEntries?.length > 0 ? (
-        <div className="border rounded-lg p-4">
-          <h2 className="text-xl font-bold mb-4">Weight History</h2>
-          <div className="space-y-2">
-            {sortedEntries.map((entry) => (
-              <div key={entry.id} className="flex justify-between">
-                <span>{new Date(entry.date).toLocaleDateString()}</span>
-                <span>{entry.weight} kg</span>
+        <Card className={theme === 'dark' ? 'bg-[#2b2d31]' : ''}>
+          <CardHeader>
+            <CardTitle>Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-4 gap-4">
+              <div>
+                <h3 className="text-sm font-medium">Current</h3>
+                <p className="text-2xl font-bold">{sortedEntries[sortedEntries.length - 1]?.weight || 0} kg</p>
               </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="text-center p-4">
-          <p>No weight entries available</p>
-        </div>
-      )}
+              <div>
+                <h3 className="text-sm font-medium">Goal</h3>
+                <p className="text-2xl font-bold">{settings.goalWeight || 0} kg</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium">Total Change</h3>
+                <p className="text-2xl font-bold">
+                  {(sortedEntries[sortedEntries.length - 1]?.weight - settings.startWeight).toFixed(1)} kg
+                </p>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium">BMI</h3>
+                <p className="text-2xl font-bold">
+                  {((sortedEntries[sortedEntries.length - 1]?.weight || 0) / Math.pow(settings.height / 100, 2)).toFixed(1)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={theme === 'dark' ? 'bg-[#2b2d31]' : ''}>
+          <CardHeader>
+            <CardTitle>Weight History ({entries.length} entries)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {sortedEntries.map((entry, i) => {
+                const change = i > 0 ? (entry.weight - sortedEntries[i-1].weight).toFixed(1) : null;
+                return (
+                  <div key={entry.id} className="flex justify-between items-center py-2 border-b border-gray-700">
+                    <div className="flex gap-4">
+                      <span>{new Date(entry.date).toLocaleDateString()}</span>
+                      <span>{entry.weight} kg</span>
+                    </div>
+                    {change && (
+                      <span className={change > 0 ? 'text-red-500' : 'text-green-500'}>
+                        {change > 0 ? `+${change}` : change}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
