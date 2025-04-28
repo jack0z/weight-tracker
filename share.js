@@ -10,27 +10,23 @@
  * @param {string} theme - Current theme
  * @returns {Object} - Result object with success status, message, and shareLink if successful
  */
-export function generateShareLink(username, entries, startWeight, goalWeight, height, theme) {
+export async function generateShareLink(username, entries, startWeight, goalWeight, height, theme) {
   try {
-    // Create the data to share
-    const shareData = {
-      sharedBy: username,
-      entries,
-      startWeight,
-      goalWeight,
-      height,
-      theme,
-      timestamp: Date.now()
-    };
+    const response = await fetch('/.netlify/functions/share-create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username,
+        entries,
+        startWeight,
+        goalWeight,
+        height,
+        theme
+      })
+    });
 
-    // Store in localStorage with unique ID
-    const shareId = Math.random().toString(36).substring(2, 15);
-    localStorage.setItem(`share_${shareId}`, JSON.stringify(shareData));
-
-    return {
-      success: true,
-      shareLink: `${window.location.origin}?view=${shareId}`
-    };
+    const result = await response.json();
+    return result;
   } catch (error) {
     console.error('Error generating share link:', error);
     return {
@@ -45,36 +41,11 @@ export function generateShareLink(username, entries, startWeight, goalWeight, he
  * @param {string} shareId - The share ID from the URL
  * @returns {Object} - Result with success status, message, and data if successful
  */
-export function loadSharedView(shareId) {
+export async function loadSharedView(shareId) {
   try {
-    const data = localStorage.getItem(`share_${shareId}`);
-    if (!data) {
-      return {
-        success: false,
-        message: 'Shared data not found or expired'
-      };
-    }
-
-    // Parse the stored data
-    const shareData = JSON.parse(data);
-
-    // Optional: Check if share has expired (e.g., after 24 hours)
-    const now = Date.now();
-    const shareTime = shareData.timestamp;
-    const EXPIRE_AFTER = 24 * 60 * 60 * 1000; // 24 hours
-
-    if (now - shareTime > EXPIRE_AFTER) {
-      localStorage.removeItem(`share_${shareId}`);
-      return {
-        success: false,
-        message: 'Share link has expired'
-      };
-    }
-
-    return {
-      success: true,
-      data: shareData
-    };
+    const response = await fetch(`/.netlify/functions/share-load?shareId=${shareId}`);
+    const result = await response.json();
+    return result;
   } catch (error) {
     console.error('Error loading shared view:', error);
     return {

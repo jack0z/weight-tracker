@@ -50,7 +50,7 @@ export default function WeightTracker() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareLink, setShareLink] = useState("");
   const [viewMode, setViewMode] = useState(false);
-  const [viewData, setViewData] = useState(null);
+  const [sharedData, setSharedData] = useState(null);
   
   // Toggle theme function
   const toggleTheme = () => {
@@ -60,13 +60,13 @@ export default function WeightTracker() {
     // Always save theme preference to localStorage
     localStorage.setItem("theme", newTheme);
     
-    // If in view mode, update the viewData theme too
-    if (viewMode && viewData) {
-      const updatedViewData = {
-        ...viewData,
+    // If in view mode, update the sharedData theme too
+    if (viewMode && sharedData) {
+      const updatedSharedData = {
+        ...sharedData,
         theme: newTheme
       };
-      setViewData(updatedViewData);
+      setSharedData(updatedSharedData);
       
       // Directly apply theme to document
       if (newTheme === "dark") {
@@ -454,60 +454,25 @@ export default function WeightTracker() {
     };
   }
 
-  // Add this new useEffect to check for view mode in URL
   useEffect(() => {
     if (isClient && typeof window !== 'undefined') {
-      // Check for view mode in URL
       const urlParams = new URLSearchParams(window.location.search);
       const viewParam = urlParams.get('view');
       
       if (viewParam) {
-        console.log("View mode detected:", viewParam);
-        
-        // Load shared data
         (async () => {
           const result = await Share.loadSharedView(viewParam);
-          
           if (result.success) {
             setViewMode(true);
-            setViewData(result.data);
-            
-            // Set theme from shared data
-            if (result.data.theme) {
-              setTheme(result.data.theme);
-              
-              // Directly apply theme to document
-              if (result.data.theme === "dark") {
-                document.documentElement.classList.add("dark");
-              } else {
-                document.documentElement.classList.remove("dark");
-              }
-            }
-            
-            setTimeout(() => {
-              toast.success("Viewing shared weight data", {
-                style: {
-                  background: theme === 'dark' ? "#313338" : "#ffffff",
-                  color: theme === 'dark' ? "#e3e5e8" : "#374151",
-                  border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-                }
-              });
-            }, 500);
+            setSharedData(result.data);
           } else {
-            setTimeout(() => {
-              toast.error(result.message, {
-                style: {
-                  background: theme === 'dark' ? "#313338" : "#ffffff",
-                  color: theme === 'dark' ? "#e3e5e8" : "#374151",
-                  border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-                }
-              });
-            }, 500);
+            toast.error(result.message);
+            window.location.href = window.location.origin;
           }
         })();
       }
     }
-  }, [isClient]); // Only run when isClient changes, not on theme changes
+  }, [isClient]);
 
   // Generate and share a link
   const handleShareLink = () => {
@@ -563,19 +528,8 @@ export default function WeightTracker() {
   }
 
   // If in view mode, render the ViewMode component
-  if (viewMode && viewData) {
-    return (
-      <ViewMode 
-        entries={viewData.entries}
-        startWeight={viewData.startWeight}
-        goalWeight={viewData.goalWeight}
-        height={viewData.height}
-        theme={theme}
-        sharedBy={viewData.sharedBy}
-        onThemeToggle={toggleTheme}
-        onExit={handleExitViewMode}
-      />
-    );
+  if (viewMode && sharedData) {
+    return <ViewMode sharedData={sharedData} theme={theme} />;
   }
 
   // Color scheme based on theme
