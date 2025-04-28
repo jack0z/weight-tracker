@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
 
 let cachedConnection = null;
 
@@ -9,13 +8,12 @@ async function connectDB() {
   }
 
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    console.log('Connecting to MongoDB...');
+    // Remove deprecated options
+    const conn = await mongoose.connect(process.env.MONGODB_URI);
     
     cachedConnection = conn;
-    console.log('MongoDB Connected');
+    console.log('MongoDB Connected Successfully');
     return conn;
   } catch (error) {
     console.error('MongoDB Connection Error:', error);

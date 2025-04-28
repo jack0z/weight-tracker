@@ -25,11 +25,8 @@ export function checkExistingLogin() {
  * @returns {Object} Results of the login or registration attempt
  */
 export async function handleLogin(username, password, registering) {
-  if (!username || !password) {
-    toast.error("Please enter username and password");
-    return { success: false, message: "Missing credentials" };
-  }
-
+  console.log('Login attempt:', { username });
+  
   try {
     if (registering) {
       const registerResponse = await fetch('/.netlify/functions/register', {
@@ -50,27 +47,28 @@ export async function handleLogin(username, password, registering) {
       return { success: true, message: "Registration successful", user: { username } };
     }
 
-    const loginResponse = await fetch('/.netlify/functions/login', {
+    // Note the path starts with a forward slash
+    const response = await fetch('/.netlify/functions/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ username, password })
     });
 
-    const loginData = await loginResponse.json();
-    console.log('Login response:', loginData); // Add logging
+    console.log('Response:', response.status);
+    const data = await response.json();
+    console.log('Response data:', data);
 
-    if (!loginResponse.ok) {
-      toast.error(loginData.message);
-      return { success: false, message: loginData.message };
+    if (!response.ok) {
+      console.error('Login failed:', data);
+      return { success: false, message: data.message };
     }
 
     sessionStorage.setItem("current-user", username);
-    toast.success(`Welcome back, ${username}!`);
-    return { success: true, message: "Login successful", user: { username } };
-
+    return { success: true, message: "Login successful", user: data.user };
   } catch (error) {
     console.error("Auth error:", error);
-    toast.error("Authentication failed. Please try again.");
     return { success: false, message: "Authentication failed" };
   }
 }

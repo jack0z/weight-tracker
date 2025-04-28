@@ -4,6 +4,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  trailingSlash: true,
+  distDir: '.next',
+  assetPrefix: '/',
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -12,10 +15,7 @@ const nextConfig = {
         tls: false,
         dns: false,
         child_process: false,
-        'timers/promises': false,
-        crypto: false,
-        stream: false,
-        buffer: false
+        'timers/promises': false
       }
     }
     return config
