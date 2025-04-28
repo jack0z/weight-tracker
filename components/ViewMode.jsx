@@ -1,43 +1,45 @@
+"use client";
+
 import { useEffect, useState } from 'react';
 import { Line } from 'react-chartjs-2';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card } from './ui/card';
+import LoadingSpinner from './LoadingSpinner';
 
-export default function ViewMode({ sharedData, theme }) {
-  const {
-    entries,
-    startWeight,
-    goalWeight,
-    sharedBy
-  } = sharedData;
+export default function ViewMode({ shareId, theme }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Calculate averages and summaries
-  const calculateAverages = () => {
-    if (!entries || entries.length === 0) return null;
-    
-    const weights = entries.map(e => e.weight);
-    return {
-      overall: (weights.reduce((a, b) => a + b, 0) / weights.length).toFixed(1),
-      last7Days: weights.slice(0, 7).reduce((a, b) => a + b, 0) / Math.min(7, weights.length),
-      last30Days: weights.slice(0, 30).reduce((a, b) => a + b, 0) / Math.min(30, weights.length)
+  useEffect(() => {
+    const loadSharedData = async () => {
+      try {
+        const response = await fetch(`/.netlify/functions/share-load?id=${shareId}`);
+        const result = await response.json();
+
+        if (result.success) {
+          setData(result.data);
+        } else {
+          throw new Error(result.message);
+        }
+      } catch (error) {
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
     };
-  };
 
-  // Format weight history
-  const formatHistory = () => {
-    return entries
-      .slice(0, 10) // Show only last 10 entries
-      .map(entry => ({
-        date: new Date(entry.date).toLocaleDateString(),
-        weight: entry.weight.toFixed(1)
-      }));
-  };
+    loadSharedData();
+  }, [shareId]);
 
-  // Chart configuration
+  if (loading) return <LoadingSpinner />;
+  if (error) return <div className="text-red-500">{error}</div>;
+  if (!data) return <div>No data found</div>;
+
   const chartData = {
-    labels: entries.map(e => new Date(e.date).toLocaleDateString()),
+    labels: data.entries.map(e => new Date(e.date).toLocaleDateString()),
     datasets: [{
       label: 'Weight Progress',
-      data: entries.map(e => e.weight),
+      data: data.entries.map(e => e.weight),
       fill: false,
       borderColor: theme === 'dark' ? '#5865f2' : '#8DA101',
       tension: 0.1
@@ -45,81 +47,43 @@ export default function ViewMode({ sharedData, theme }) {
   };
 
   return (
-    <div className="space-y-6 p-4">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold">Weight Progress Report</h2>
-        <p className="text-muted">Shared by {sharedBy}</p>
+    <div className="container mx-auto p-4 space-y-6">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold">Weight Tracker Share</h1>
+        <p className="text-gray-500">Shared by {data.sharedBy}</p>
       </div>
 
-      {/* Weight Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Weight Progress</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
-            <Line 
-              data={chartData} 
-              options={{ 
-                maintainAspectRatio: false,
-                responsive: true 
-              }} 
-            />
+      <Card className="p-4">
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <div>
+            <h3 className="font-bold">Start Weight</h3>
+            <p>{data.settings.startWeight} kg</p>
           </div>
-        </CardContent>
+          <div>
+            <h3 className="font-bold">Current Weight</h3>
+            <p>{data.entries[0]?.weight} kg</p>
+          </div>
+          <div>
+            <h3 className="font-bold">Goal Weight</h3>
+            <p>{data.settings.goalWeight} kg</p>
+          </div>
+        </div>
+
+        <div className="h-[300px]">
+          <Line data={chartData} options={{ maintainAspectRatio: false }} />
+        </div>
       </Card>
 
-      {/* Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p>Start Weight: {startWeight} kg</p>
-              <p>Goal Weight: {goalWeight} kg</p>
+      <Card className="p-4">
+        <h2 className="text-xl font-bold mb-4">Weight History</h2>
+        <div className="space-y-2">
+          {data.entries.slice(0, 10).map((entry, index) => (
+            <div key={index} className="flex justify-between">
+              <span>{new Date(entry.date).toLocaleDateString()}</span>
+              <span>{entry.weight} kg</span>
             </div>
-            <div>
-              <p>Current Weight: {entries[0]?.weight} kg</p>
-              <p>Total Change: {(entries[0]?.weight - startWeight).toFixed(1)} kg</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Weight Averages */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Weight Averages</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4">
-            {Object.entries(calculateAverages() || {}).map(([period, value]) => (
-              <div key={period} className="text-center">
-                <h3 className="font-semibold">{period.replace(/([A-Z])/g, ' $1')}</h3>
-                <p>{value.toFixed(1)} kg</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Weight History */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {formatHistory().map((entry, index) => (
-              <div key={index} className="flex justify-between p-2 border-b">
-                <span>{entry.date}</span>
-                <span>{entry.weight} kg</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
+          ))}
+        </div>
       </Card>
     </div>
   );

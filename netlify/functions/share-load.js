@@ -1,27 +1,16 @@
-const mongoose = require('mongoose');
-const connectDB = require('./database/db');
-const Share = require('./database/schema/Share');
+const { MongoClient } = require('mongodb');
 
-exports.handler = async function(event, context) {
-  context.callbackWaitsForEmptyEventLoop = false;
-
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Content-Type': 'application/json'
-  };
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers };
+exports.handler = async (event) => {
+  if (event.httpMethod !== 'GET') {
+    return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
   try {
-    const shareId = event.queryStringParameters?.shareId;
+    // Get share ID from query params
+    const shareId = event.queryStringParameters?.id;
     if (!shareId) {
       return {
         statusCode: 400,
-        headers,
         body: JSON.stringify({
           success: false,
           message: 'Share ID is required'
@@ -29,32 +18,45 @@ exports.handler = async function(event, context) {
       };
     }
 
-    await connectDB();
-    const share = await Share.findOne({ shareId });
+    // Connect to MongoDB
+    const client = await MongoClient.connect(process.env.MONGODB_URI);
+    const db = client.db('weight-tracker');
+    
+    // Find the share data
+    const share = await db.collection('shares').findOne({ shareId });
+    
+    await client.close();
 
     if (!share) {
       return {
         statusCode: 404,
-        headers,
         body: JSON.stringify({
           success: false,
-          message: 'Shared data not found or expired'
+          message: 'Share not found'
         })
       };
     }
 
     return {
       statusCode: 200,
-      headers,
       body: JSON.stringify({
         success: true,
-        data: share
+        data: {
+          entries: share.entries,
+          settings: {
+            startWeight: share.startWeight,
+            goalWeight: share.goalWeight,
+            height: share.height,
+            theme: share.theme
+          },
+          sharedBy: share.user
+        }
       })
     };
   } catch (error) {
+    console.error('Share load error:', error);
     return {
       statusCode: 500,
-      headers,
       body: JSON.stringify({
         success: false,
         message: 'Failed to load shared data'
