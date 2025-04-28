@@ -21,7 +21,8 @@
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["mongodb"]
+  external_node_modules = ["mongodb", "mongoose"]
+  included_files = ["netlify/functions/database/**"]
 
 [dev]
   framework = "#static"

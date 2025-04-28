@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const connectDB = require('../database/db');
-const UserSchema = require('../database/schema/User');
+const connectDB = require('./database/db');
+const User = require('./database/schema/User');
 
 exports.handler = async function(event, context) {
   // Prevent function from waiting for connections to close
