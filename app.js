@@ -531,7 +531,12 @@ export default function WeightTracker() {
       theme
     );
     
+    console.log('Share result:', result);
     if (result.success) {
+
+    const shareId = result.shareLink.split('view=')[1];
+    const stored = localStorage.getItem(`share_${shareId}`);
+    console.log('Stored share data:', stored); // Add this line to check the stored data
       setShareLink(result.shareLink);
       setShowShareModal(true);
     } else {
