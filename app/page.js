@@ -6,30 +6,39 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { toast } from 'sonner';
 import * as Core from '../core';
 
-// Add static generation hint
 export const dynamic = 'force-static';
 
 export default function Home() {
   const [user, setUser] = useState(null);
   const [theme, setTheme] = useState('dark');
   const [isLoading, setIsLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
 
+  // Handle initial mount
   useEffect(() => {
+    setIsMounted(true);
     setIsLoading(false);
   }, []);
 
   const handleLogin = (userData) => {
     setUser(userData);
-    // Delay core initialization to ensure DOM is ready
-    setTimeout(() => {
-      Core.initWeightTracker();
-    }, 0);
+    if (isMounted && typeof window !== 'undefined') {
+      requestAnimationFrame(() => {
+        Core.initWeightTracker();
+      });
+    }
   };
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
+  // Show nothing during SSR
+  if (!isMounted) {
+    return null;
+  }
+
+  // Show loading state after mount but before ready
   if (isLoading) {
     return <LoadingSpinner />;
   }

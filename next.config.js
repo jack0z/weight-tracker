@@ -5,7 +5,13 @@ const nextConfig = {
     unoptimized: true,
   },
   trailingSlash: true,
-  distDir: 'out'
+  distDir: 'out',
+  // Add static HTML shell
+  generateStaticParams: async () => {
+    return [{
+      params: { path: [] }
+    }];
+  }
 }
 
 module.exports = nextConfig
