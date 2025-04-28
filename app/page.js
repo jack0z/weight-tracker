@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Login from '../components/Login';
-import WeightTracker from '../components/WeightTracker';
+import { toast } from 'sonner';
+import * as Core from '../core';
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -10,6 +11,7 @@ export default function Home() {
 
   const handleLogin = (userData) => {
     setUser(userData);
+    Core.initWeightTracker(); // Initialize core app after login
   };
 
   const toggleTheme = () => {
@@ -21,7 +23,9 @@ export default function Home() {
       {!user ? (
         <Login onLogin={handleLogin} theme={theme} toggleTheme={toggleTheme} />
       ) : (
-        <WeightTracker username={user.username} theme={theme} />
+        <div id="app-container">
+          {/* Core app will render here through Core.initWeightTracker() */}
+        </div>
       )}
     </div>
   );
