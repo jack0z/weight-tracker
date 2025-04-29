@@ -5,13 +5,13 @@ import { connectToDatabase } from './lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 /**
- * Checks if user is already logged in based on session
+ * Checks if user is already logged in based on sessionStorage
  * @returns {Object|null} User information if logged in, null otherwise
  */
 export async function checkExistingLogin() {
   if (typeof window === 'undefined') return null;
   
-  const savedUser = sessionStorage.getItem("current-user");
+  const savedUser = sessionStorage.getItem("current-user"); // Changed from localStorage
   if (savedUser) {
     return { username: savedUser };
   }
@@ -20,73 +20,74 @@ export async function checkExistingLogin() {
 }
 
 /**
- * Handles user login/registration
+ * Handles user login or registration
  * @param {string} username - The username to log in with
  * @param {string} password - The password to authenticate with
  * @param {boolean} registering - Whether the user is in registration mode
- * @returns {Object} Results of the login attempt
+ * @returns {Object} Results of the login or registration attempt
  */
 export async function handleLogin(username, password, registering) {
-  if (!username || !password) {
-    toast.error("Please enter username and password");
-    return { success: false, message: "Missing credentials" };
-  }
-
+  console.log('Login attempt:', { username });
+  
   try {
-    const db = await connectToDatabase();
-    const users = db.collection('users');
-
-    // Check if user exists
-    const existingUser = await users.findOne({ username });
-
-    if (existingUser) {
-      if (registering) {
-        toast.error("Username already exists");
-        return { success: false, message: "Username taken" };
-      }
-
-      // Verify password (in production, use proper password hashing)
-      if (password === existingUser.password) {
-        sessionStorage.setItem("current-user", username);
-        toast.success(`Welcome back, ${username}!`);
-        return { 
-          success: true, 
-          message: "Login successful", 
-          user: { username } 
-        };
-      } else {
-        toast.error("Incorrect password");
-        return { success: false, message: "Incorrect password" };
-      }
-    } else if (registering) {
-      // Create new user
-      const result = await users.insertOne({
-        username,
-        password, // In production, hash the password
-        created: new Date(),
-        settings: {},
-        entries: []
+    if (registering) {
+      const registerResponse = await fetch('/.netlify/functions/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
       });
+
+      const registerData = await registerResponse.json();
+      
+      if (!registerResponse.ok) {
+        toast.error(registerData.message);
+        return { success: false, message: registerData.message };
+      }
 
       sessionStorage.setItem("current-user", username);
       toast.success(`Account created! Welcome, ${username}!`);
-      return { 
-        success: true, 
-        message: "Registration successful", 
-        user: { username } 
-      };
-    } else {
-      toast.error("User not found. Register a new account?");
-      return { 
-        success: false, 
-        message: "User not found", 
-        shouldRegister: true 
-      };
+      return { success: true, message: "Registration successful", user: { username } };
     }
+
+    // Note the path starts with a forward slash
+    const response = await fetch('/.netlify/functions/login', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ username, password })
+    });
+
+    console.log('Response:', response.status);
+    const data = await response.json();
+    console.log('Response data:', data);
+
+    if (!response.ok) {
+      console.error('Login failed:', data);
+      return { success: false, message: data.message };
+    }
+
+    sessionStorage.setItem("current-user", username);
+    return { success: true, message: "Login successful", user: data.user };
   } catch (error) {
-    console.error("Database error:", error);
-    toast.error("Error connecting to database");
-    return { success: false, message: "Database error" };
+    console.error("Auth error:", error);
+    return { success: false, message: "Authentication failed" };
+  }
+}
+
+/**
+ * Handles user logout
+ * @returns {boolean} Whether logout was successful
+ */
+export function handleLogout() {
+  try {
+    sessionStorage.removeItem("current-user"); // Changed from localStorage
+    toast.success("Logged out successfully");
+    return true;
+  } catch (error) {
+    console.error("Error during logout:", error);
+    toast.error("Error logging out");
+    return false;
   }
 }
 
@@ -188,5 +189,33 @@ export function handleLogout() {
   } catch (error) {
     console.error("Error during logout:", error);
     return false;
+  }
+}
+
+/**
+ * Handles user registration
+ * @param {string} username - The username to register
+ * @param {string} password - The password to register
+ * @returns {Promise<Object>} The result of the registration attempt
+ */
+export async function handleRegister(username, password) {
+  try {
+    const response = await fetch('/.netlify/functions/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Registration error:', error);
+    throw error;
   }
 }

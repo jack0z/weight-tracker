@@ -49,7 +49,13 @@ export default function WeightTracker() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareLink, setShareLink] = useState("");
   const [viewMode, setViewMode] = useState(false);
-  const [viewData, setViewData] = useState(null);
+  const [sharedData, setSharedData] = useState(null);
+
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Route check state
+  const [isRouteChecked, setIsRouteChecked] = useState(false);
   
   // Toggle theme function
   const toggleTheme = () => {
@@ -59,13 +65,13 @@ export default function WeightTracker() {
     // Always save theme preference to localStorage
     localStorage.setItem("theme", newTheme);
     
-    // If in view mode, update the viewData theme too
-    if (viewMode && viewData) {
-      const updatedViewData = {
-        ...viewData,
+    // If in view mode, update the sharedData theme too
+    if (viewMode && sharedData) {
+      const updatedSharedData = {
+        ...sharedData,
         theme: newTheme
       };
-      setViewData(updatedViewData);
+      setSharedData(updatedSharedData);
       
       // Directly apply theme to document
       if (newTheme === "dark") {
@@ -162,6 +168,47 @@ export default function WeightTracker() {
       });
     }
   }, [startWeight, goalWeight, height, isClient, isLoggedIn, currentUser]);
+
+  useEffect(() => {
+    const checkRouteAndLoadData = async () => {
+      const hash = window.location.hash;
+      const shareMatch = hash.match(/#\/share\/([\w-]+)/);
+      
+      if (shareMatch) {
+        const shareId = shareMatch[1];
+        const result = await Share.loadSharedView(shareId);
+        if (result.success) {
+          setViewMode(true);
+          setSharedData(result.data);
+          setShowLoginForm(false);
+        }
+      }
+      setIsRouteChecked(true);
+      setIsLoading(false);
+    };
+
+    checkRouteAndLoadData();
+  }, []);
+
+  useEffect(() => {
+    if (isClient && typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      
+      if (viewParam) {
+        (async () => {
+          const result = await Share.loadSharedView(viewParam);
+          if (result.success) {
+            setViewMode(true);
+            setSharedData(result.data);
+          } else {
+            toast.error(result.message);
+            window.location.href = window.location.origin;
+          }
+        })();
+      }
+    }
+  }, [isClient]);
 
   // Handle user login
   const handleUserLogin = (user) => {
@@ -453,97 +500,61 @@ export default function WeightTracker() {
     };
   }
 
-  // Add this new useEffect to check for view mode in URL
-  useEffect(() => {
-    if (isClient && typeof window !== 'undefined') {
-      // Check for view mode in URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const viewParam = urlParams.get('view');
-      
-      if (viewParam) {
-        console.log("View mode detected:", viewParam);
-        
-        // Load shared data
-        (async () => {
-          const result = await Share.loadSharedView(viewParam);
-          
-          if (result.success) {
-            setViewMode(true);
-            setViewData(result.data);
-            
-            // Set theme from shared data
-            if (result.data.theme) {
-              setTheme(result.data.theme);
-              
-              // Directly apply theme to document
-              if (result.data.theme === "dark") {
-                document.documentElement.classList.add("dark");
-              } else {
-                document.documentElement.classList.remove("dark");
-              }
-            }
-            
-            setTimeout(() => {
-              toast.success("Viewing shared weight data", {
-                style: {
-                  background: theme === 'dark' ? "#313338" : "#ffffff",
-                  color: theme === 'dark' ? "#e3e5e8" : "#374151",
-                  border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-                }
-              });
-            }, 500);
-          } else {
-            setTimeout(() => {
-              toast.error(result.message, {
-                style: {
-                  background: theme === 'dark' ? "#313338" : "#ffffff",
-                  color: theme === 'dark' ? "#e3e5e8" : "#374151",
-                  border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-                }
-              });
-            }, 500);
-          }
-        })();
-      }
-    }
-  }, [isClient]); // Only run when isClient changes, not on theme changes
-
-  // Generate and share a link
-  const handleShareLink = () => {
+  // Modify the handleShareLink function
+  const handleShareLink = async () => {
     if (!isLoggedIn) {
-      toast.error("You must be logged in to share your tracker", {
-        style: {
-          background: theme === 'dark' ? "#313338" : "#ffffff",
-          color: theme === 'dark' ? "#e3e5e8" : "#374151",
-          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-        }
-      });
+      toast.error("You must be logged in to share your tracker");
       return;
     }
     
-    const result = Share.generateShareLink(
-      currentUser,
-      entries,
-      startWeight,
-      goalWeight,
-      height,
-      theme
-    );
-    
-    if (result.success) {
-      setShareLink(result.shareLink);
-      setShowShareModal(true);
-    } else {
-      toast.error(result.message, {
-        style: {
-          background: theme === 'dark' ? "#313338" : "#ffffff",
-          color: theme === 'dark' ? "#e3e5e8" : "#374151",
-          border: `1px solid ${theme === 'dark' ? "#1e1f22" : "#e5e7eb"}`,
-        }
+    try {
+      // Show loading state
+      toast.loading("Generating share link...");
+      
+      // Make POST request to Netlify function
+      const response = await fetch('/.netlify/functions/share-create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user: currentUser,
+          entries: entries,
+          settings: {
+            startWeight,
+            goalWeight,
+            height,
+            theme
+          }
+        })
       });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Clear loading toast
+        toast.dismiss();
+        
+        // Set share link and show modal
+        setShareLink(result.shareLink);
+        setShowShareModal(true);
+        
+        toast.success("Share link generated successfully");
+      } else {
+        throw new Error(result.message || 'Failed to generate share link');
+      }
+      
+    } catch (error) {
+      console.error('Share error:', error);
+      toast.error(error.message || 'Error generating share link');
     }
   };
-  
+
+  // Add debug logging for share modal state
+  useEffect(() => {
+    console.log('Share modal state:', { showShareModal, shareLink });
+  }, [showShareModal, shareLink]);
+
   // Exit view mode
   const handleExitViewMode = () => {
     // Instead of just updating state, fully reload the page
@@ -551,25 +562,22 @@ export default function WeightTracker() {
     window.location.href = window.location.origin;
   };
 
-  // Show login screen if not logged in
-  if (showLoginForm) {
-    return <Login onLogin={handleUserLogin} theme={theme} toggleTheme={toggleTheme} />;
+  // Update the initial render conditions
+  if (!isRouteChecked || isLoading) {
+    return null; // Show nothing while checking route and loading data
   }
 
-  // If in view mode, render the ViewMode component
-  if (viewMode && viewData) {
-    return (
-      <ViewMode 
-        entries={viewData.entries}
-        startWeight={viewData.startWeight}
-        goalWeight={viewData.goalWeight}
-        height={viewData.height}
-        theme={theme}
-        sharedBy={viewData.sharedBy}
-        onThemeToggle={toggleTheme}
-        onExit={handleExitViewMode}
-      />
-    );
+  // Move the viewMode check before the login check
+  if (viewMode && sharedData) {
+    return <ViewMode 
+      data={sharedData} 
+      theme={theme} 
+      onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} 
+    />;
+  }
+
+  if (showLoginForm && !viewMode) {
+    return <Login onLogin={handleUserLogin} theme={theme} toggleTheme={toggleTheme} />;
   }
 
   // Color scheme based on theme

@@ -1,24 +1,16 @@
 [build]
   command = "npm run build"
+  functions = "netlify/functions"
   publish = "out"
 
-[build.environment]
-  NEXT_USE_NETLIFY_EDGE = "true"
-  NODE_VERSION = "18"
-  NETLIFY_NEXT_PLUGIN_SKIP = "true"
-  NODE_ENV = "production"
-
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
+  from = "/_next/*"
+  to = "/_next/:splat"
   status = 200
 
 [[redirects]]
-  from = "/_next/static/*"
-  to = "/_next/static/:splat"
+  from = "/share/*"
+  to = "/index.html"
   status = 200
   force = true
 
@@ -29,5 +21,12 @@
   force = true
 
 [functions]
-  directory = "netlify/functions"
   node_bundler = "esbuild"
+  external_node_modules = ["mongodb", "mongoose"]
+  included_files = ["netlify/functions/database/**"]
+
+[dev]
+  framework = "#static"
+  targetPort = 3000
+  port = 8888
+  publish = "out"

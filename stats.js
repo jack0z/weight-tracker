@@ -1,56 +1,54 @@
 // stats.js - Statistical calculations for weight tracking
 
+import { format } from 'date-fns';
+
 /**
  * Calculate average weight change over a period of days
- * @param {Array} formattedEntries - Array of formatted entries with dateObj property
+ * @param {Array} entries - Array of weight entries
  * @param {number} days - Number of days to calculate average for
  * @returns {Object} - Object with average data
  */
-function calculatePeriodAverage(formattedEntries, days) {
-  if (!formattedEntries || formattedEntries.length < 2) {
-    console.log(`${days}-day period: Not enough entries`, { total: formattedEntries?.length || 0 });
-    return { value: 0, hasData: false };
+export function calculatePeriodAverage(entries, days) {
+  if (!entries || entries.length < 2) {
+    return { hasData: false, value: 0, average: 0 };
   }
-  
-  // Use the date of the most recent entry
-  const mostRecentDate = formattedEntries[0].dateObj;
-  
-  // Create a cutoff date by subtracting days
-  const cutoffDate = new Date(mostRecentDate);
-  cutoffDate.setDate(cutoffDate.getDate() - days);
-  
+
+  // Ensure dates are properly parsed
+  const entriesWithDates = entries.map(entry => ({
+    ...entry,
+    dateObj: new Date(entry.date)
+  }));
+
+  // Sort by date, newest first
+  const sortedEntries = entriesWithDates.sort((a, b) => b.dateObj - a.dateObj);
+
+  // Get start and end dates for the period
+  const endDate = sortedEntries[0].dateObj;
+  const startDate = new Date(endDate);
+  startDate.setDate(startDate.getDate() - days);
+
   // Filter entries within the period
-  const recentEntries = formattedEntries.filter(entry => entry.dateObj >= cutoffDate);
-  
-  if (recentEntries.length < 2) {
-    console.log(`${days}-day period: Not enough filtered entries`, { filtered: recentEntries.length });
-    return { value: 0, hasData: false };
+  const periodEntries = sortedEntries.filter(entry => 
+    entry.dateObj >= startDate && entry.dateObj <= endDate
+  );
+
+  if (periodEntries.length < 2) {
+    return { hasData: false, value: 0, average: 0 };
   }
-  
-  // Calculate the oldest and newest weights in the period
-  const oldestEntry = recentEntries[recentEntries.length - 1];
-  const newestEntry = recentEntries[0];
-  
-  // Calculate average daily change
-  const daysDiff = Math.max(1, (newestEntry.dateObj - oldestEntry.dateObj) / (1000 * 60 * 60 * 24));
-  const weightDiff = newestEntry.weight - oldestEntry.weight;
-  const avgDailyChange = weightDiff / daysDiff;
-  
-  // Format dates for display
-  const formatDate = (date) => {
-    const month = date.toLocaleString('default', { month: 'short' });
-    const day = date.getDate();
-    return `${month} ${day}`;
-  };
-  
-  return { 
-    value: avgDailyChange.toFixed(2), 
+
+  const totalChange = periodEntries[0].weight - periodEntries[periodEntries.length - 1].weight;
+  const daysDiff = (periodEntries[0].dateObj - periodEntries[periodEntries.length - 1].dateObj) / (1000 * 60 * 60 * 24);
+  const averageChange = daysDiff > 0 ? totalChange / daysDiff : 0;
+
+  return {
     hasData: true,
-    totalChange: weightDiff.toFixed(1),
-    startWeight: oldestEntry.weight,
-    endWeight: newestEntry.weight,
-    startDate: formatDate(oldestEntry.dateObj),
-    endDate: formatDate(newestEntry.dateObj)
+    value: parseFloat(averageChange.toFixed(3)),
+    average: periodEntries.reduce((sum, entry) => sum + parseFloat(entry.weight), 0) / periodEntries.length,
+    totalChange: totalChange.toFixed(1),
+    startDate: format(periodEntries[periodEntries.length - 1].dateObj, "MMM d"),
+    endDate: format(periodEntries[0].dateObj, "MMM d"),
+    startWeight: periodEntries[periodEntries.length - 1].weight,
+    endWeight: periodEntries[0].weight
   };
 }
 
@@ -203,10 +201,9 @@ function getWeightDistribution(entries) {
 
 // Export functions
 export {
-  calculatePeriodAverage,
   calculateBMI,
   getBMICategory,
   calculateForecast,
   getWeightRanges,
   getWeightDistribution
-}; 
+};

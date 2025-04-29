@@ -14,9 +14,13 @@ let startWeight = "";
 let goalWeight = "";
 let height = "";
 let myChart = null;
+let isClient = false;
 
 // Initialize the weight tracker
 function initWeightTracker() {
+  isClient = typeof window !== 'undefined';
+  if (!isClient) return;
+
   // Load data
   loadAllData();
   
@@ -29,6 +33,8 @@ function initWeightTracker() {
 
 // Load all data from localStorage
 function loadAllData() {
+  if (!isClient) return;
+
   entries = Data.loadEntries();
   formattedEntries = Data.formatEntries(entries);
   
@@ -38,24 +44,41 @@ function loadAllData() {
   height = settings.height;
   
   // Set current date in form
-  document.getElementById('date').valueAsDate = new Date();
+  const dateInput = document.getElementById('date');
+  if (dateInput) {
+    dateInput.valueAsDate = new Date();
+  }
   
   // Set values from settings
-  if (startWeight) {
-    document.getElementById('start-weight').value = startWeight;
+  setInitialValues(settings);
+}
+
+// New function to set initial values
+function setInitialValues(settings) {
+  if (!isClient) return;
+
+  const { startWeight, goalWeight, height } = settings;
+  
+  const startWeightInput = document.getElementById('start-weight');
+  if (startWeightInput && startWeight) {
+    startWeightInput.value = startWeight;
   }
   
-  if (goalWeight) {
-    document.getElementById('goal-weight').value = goalWeight;
+  const goalWeightInput = document.getElementById('goal-weight');
+  if (goalWeightInput && goalWeight) {
+    goalWeightInput.value = goalWeight;
   }
   
-  if (height) {
-    document.getElementById('height').value = height;
+  const heightInput = document.getElementById('height');
+  if (heightInput && height) {
+    heightInput.value = height;
   }
 }
 
 // Set up all event listeners
 function setupEventListeners() {
+  if (!isClient) return;
+
   // Add new entry form
   document.getElementById('add-form').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -268,6 +291,8 @@ async function importData(event) {
 
 // Update UI with current data
 function updateUI() {
+  if (!isClient) return;
+
   // Update weight history table
   updateHistoryTable();
   
@@ -430,4 +455,4 @@ export {
   loadAllData,
   updateUI,
   toggleTheme
-}; 
+};
