@@ -8,9 +8,15 @@ import { toast } from "sonner";
 export function checkExistingLogin() {
   if (typeof window === 'undefined') return null;
   
-  const savedUser = sessionStorage.getItem("current-user");
-  if (savedUser) {
-    return JSON.parse(savedUser);
+  try {
+    const savedUser = sessionStorage.getItem("current-user");
+    if (savedUser) {
+      return JSON.parse(savedUser);
+    }
+  } catch (error) {
+    console.error('Error parsing saved user data:', error);
+    // Clear invalid data
+    sessionStorage.removeItem("current-user");
   }
   
   return null;
@@ -27,7 +33,8 @@ export async function loadUserData(username) {
     if (!response.ok) {
       throw new Error('Failed to load user data');
     }
-    return await response.json();
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error('Error loading user data:', error);
     toast.error('Failed to load user data');
@@ -90,7 +97,17 @@ export async function handleLogin(username, password) {
     }
 
     // Store user data in sessionStorage
-    sessionStorage.setItem("current-user", JSON.stringify(data.user));
+    const userData = {
+      username: data.user.username,
+      id: data.user.id,
+      startWeight: data.user.startWeight,
+      goalWeight: data.user.goalWeight,
+      height: data.user.height,
+      entries: data.user.entries,
+      settings: data.user.settings
+    };
+    
+    sessionStorage.setItem("current-user", JSON.stringify(userData));
     return data;
   } catch (error) {
     console.error('Login error:', error);
