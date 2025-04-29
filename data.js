@@ -64,44 +64,15 @@ function saveSetting(key, value) {
   }
 }
 
-// Add a new weight entry
-function addEntry(date, weight, entries) {
-  try {
-    console.log(`data.js: Adding entry - date: ${date}, weight: ${weight}`);
-    const newEntry = {
-      id: Date.now(),
-      date: new Date(date).toISOString(),
-      weight: parseFloat(weight)
-    };
-    
-    const updatedEntries = [newEntry, ...entries];
-    saveEntries(updatedEntries);
-    return updatedEntries;
-  } catch (error) {
-    console.error("data.js: Error adding entry:", error);
-    return entries;
-  }
-}
-
-// Delete a weight entry
-function deleteEntry(id, entries) {
-  try {
-    console.log(`data.js: Deleting entry with id: ${id}`);
-    const updatedEntries = entries.filter(entry => entry.id !== id);
-    saveEntries(updatedEntries);
-    return updatedEntries;
-  } catch (error) {
-    console.error("data.js: Error deleting entry:", error);
-    return entries;
-  }
-}
-
 // Format entries with additional data for display
-function formatEntries(entries, formatFn) {
+function formatEntries(entries = [], formatFn) {
   try {
-    console.log("data.js: Formatting entries, count:", entries.length);
+    console.log("data.js: Formatting entries, count:", entries?.length || 0);
     
-    if (!entries || entries.length === 0) return [];
+    if (!entries || !Array.isArray(entries) || entries.length === 0) {
+      console.log("data.js: No entries to format");
+      return [];
+    }
     
     // Use provided format function or create a fallback
     const getFormattedDate = (date, formatStr) => {
@@ -128,6 +99,7 @@ function formatEntries(entries, formatFn) {
       const dateObj = new Date(e.date);
       return {
         ...e,
+        id: e._id || e.id || Date.now(), // Handle both MongoDB and local IDs
         dateFormatted: getFormattedDate(e.date, "MMM d, yyyy"),
         dayFormatted: getFormattedDate(e.date, "EEEE"),
         dateObj: dateObj
@@ -142,13 +114,41 @@ function formatEntries(entries, formatFn) {
   }
 }
 
+// Add a new weight entry
+function addEntry(date, weight, entries = []) {
+  try {
+    console.log(`data.js: Adding entry - date: ${date}, weight: ${weight}`);
+    const newEntry = {
+      id: Date.now(),
+      date: new Date(date).toISOString(),
+      weight: parseFloat(weight)
+    };
+    
+    return [newEntry, ...entries];
+  } catch (error) {
+    console.error("data.js: Error adding entry:", error);
+    return entries;
+  }
+}
+
+// Delete a weight entry
+function deleteEntry(id, entries = []) {
+  try {
+    console.log(`data.js: Deleting entry with id: ${id}`);
+    return entries.filter(entry => entry.id !== id && entry._id !== id);
+  } catch (error) {
+    console.error("data.js: Error deleting entry:", error);
+    return entries;
+  }
+}
+
 // Export functions
 export {
   loadEntries,
   saveEntries,
   loadSettings,
   saveSetting,
+  formatEntries,
   addEntry,
-  deleteEntry,
-  formatEntries
+  deleteEntry
 }; 
