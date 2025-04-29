@@ -268,6 +268,87 @@ function generateDistributionChartConfig(entries, ranges, distribution, theme = 
   };
 }
 
+/**
+ * Get chart options for weight data
+ * @param {number} startWeight - Starting weight for reference line
+ * @param {number} goalWeight - Goal weight for reference line
+ * @returns {Object} - Chart options object
+ */
+export function getChartOptions(startWeight, goalWeight) {
+  return {
+    chart: {
+      type: 'line',
+      toolbar: {
+        show: false
+      },
+      animations: {
+        enabled: true,
+        easing: 'linear',
+        dynamicAnimation: {
+          speed: 1000
+        }
+      }
+    },
+    stroke: {
+      curve: 'smooth',
+      width: 2
+    },
+    markers: {
+      size: 4
+    },
+    xaxis: {
+      type: 'datetime',
+      labels: {
+        format: 'MMM d'
+      }
+    },
+    yaxis: {
+      title: {
+        text: 'Weight (kg)'
+      }
+    },
+    annotations: {
+      yaxis: [
+        {
+          y: startWeight,
+          borderColor: '#10B981',
+          label: {
+            text: 'Start Weight',
+            style: {
+              color: '#10B981'
+            }
+          }
+        },
+        {
+          y: goalWeight,
+          borderColor: '#EF4444',
+          label: {
+            text: 'Goal Weight',
+            style: {
+              color: '#EF4444'
+            }
+          }
+        }
+      ]
+    }
+  };
+}
+
+/**
+ * Get chart series data for weight entries
+ * @param {Array} entries - Array of weight entries
+ * @returns {Array} - Chart series data
+ */
+export function getChartSeries(entries) {
+  return [{
+    name: 'Weight',
+    data: entries.map(entry => ({
+      x: new Date(entry.date).getTime(),
+      y: entry.weight
+    }))
+  }];
+}
+
 // Export functions
 export {
   generateChartConfig,
