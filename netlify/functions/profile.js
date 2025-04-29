@@ -30,24 +30,51 @@ exports.handler = async function(event, context) {
 
     if (event.httpMethod === 'GET') {
       const user = await User.findOne({ username });
+      if (!user) {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ message: 'User not found' })
+        };
+      }
+
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
           startWeight: user.startWeight,
           goalWeight: user.goalWeight,
-          height: user.height
+          height: user.height,
+          entries: user.entries,
+          settings: user.settings
         })
       };
     }
 
     if (event.httpMethod === 'PUT') {
-      const { startWeight, goalWeight, height } = JSON.parse(event.body);
+      const { startWeight, goalWeight, height, entries, settings } = JSON.parse(event.body);
+      
+      const updateData = {};
+      if (startWeight !== undefined) updateData.startWeight = startWeight;
+      if (goalWeight !== undefined) updateData.goalWeight = goalWeight;
+      if (height !== undefined) updateData.height = height;
+      if (entries) updateData.entries = entries;
+      if (settings) updateData.settings = settings;
+
       const user = await User.findOneAndUpdate(
         { username },
-        { startWeight, goalWeight, height },
+        { $set: updateData },
         { new: true }
       );
+
+      if (!user) {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ message: 'User not found' })
+        };
+      }
+
       return {
         statusCode: 200,
         headers,
@@ -56,7 +83,9 @@ exports.handler = async function(event, context) {
           user: {
             startWeight: user.startWeight,
             goalWeight: user.goalWeight,
-            height: user.height
+            height: user.height,
+            entries: user.entries,
+            settings: user.settings
           }
         })
       };
@@ -72,7 +101,7 @@ exports.handler = async function(event, context) {
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ message: 'Profile update failed' })
+      body: JSON.stringify({ message: 'Profile operation failed' })
     };
   }
 };

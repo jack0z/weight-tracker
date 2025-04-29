@@ -1,6 +1,5 @@
 // auth.js - Authentication functionality for the Weight Tracker app
 import { toast } from "sonner";
-import * as Data from './data.js';
 
 /**
  * Checks if user is already logged in based on sessionStorage
@@ -9,176 +8,103 @@ import * as Data from './data.js';
 export function checkExistingLogin() {
   if (typeof window === 'undefined') return null;
   
-  const savedUser = sessionStorage.getItem("current-user"); // Changed from localStorage
+  const savedUser = sessionStorage.getItem("current-user");
   if (savedUser) {
-    return { username: savedUser };
+    return JSON.parse(savedUser);
   }
   
   return null;
 }
 
 /**
- * Handles user login or registration
- * @param {string} username - The username to log in with
- * @param {string} password - The password to authenticate with
- * @param {boolean} registering - Whether the user is in registration mode
- * @returns {Object} Results of the login or registration attempt
- */
-export async function handleLogin(username, password, registering) {
-  console.log('Login attempt:', { username });
-  
-  try {
-    if (registering) {
-      const registerResponse = await fetch('/.netlify/functions/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-
-      const registerData = await registerResponse.json();
-      
-      if (!registerResponse.ok) {
-        toast.error(registerData.message);
-        return { success: false, message: registerData.message };
-      }
-
-      sessionStorage.setItem("current-user", username);
-      toast.success(`Account created! Welcome, ${username}!`);
-      return { success: true, message: "Registration successful", user: { username } };
-    }
-
-    // Note the path starts with a forward slash
-    const response = await fetch('/.netlify/functions/login', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ username, password })
-    });
-
-    console.log('Response:', response.status);
-    const data = await response.json();
-    console.log('Response data:', data);
-
-    if (!response.ok) {
-      console.error('Login failed:', data);
-      return { success: false, message: data.message };
-    }
-
-    sessionStorage.setItem("current-user", username);
-    return { success: true, message: "Login successful", user: data.user };
-  } catch (error) {
-    console.error("Auth error:", error);
-    return { success: false, message: "Authentication failed" };
-  }
-}
-
-/**
- * Handles user logout
- * @returns {boolean} Whether logout was successful
- */
-export function handleLogout() {
-  try {
-    sessionStorage.removeItem("current-user"); // Changed from localStorage
-    toast.success("Logged out successfully");
-    return true;
-  } catch (error) {
-    console.error("Error during logout:", error);
-    toast.error("Error logging out");
-    return false;
-  }
-}
-
-/**
- * Loads user-specific data
+ * Loads user data from the server
  * @param {string} username - The username to load data for
- * @returns {Object} The loaded user data
+ * @returns {Promise<Object>} User data
  */
-export function loadUserData(username) {
-  if (!username) return null;
-  
-  const userPrefix = `user_${username}_`;
-  
+export async function loadUserData(username) {
   try {
-    // Load entries
-    const userEntriesJson = localStorage.getItem(`${userPrefix}entries`);
-    const userEntries = userEntriesJson ? JSON.parse(userEntriesJson) : [];
-    
-    // Load settings
-    const startWeight = localStorage.getItem(`${userPrefix}start-weight`) || "";
-    const goalWeight = localStorage.getItem(`${userPrefix}goal-weight`) || "";
-    const height = localStorage.getItem(`${userPrefix}height`) || "";
-    
-    return {
-      entries: userEntries,
-      settings: {
-        startWeight,
-        goalWeight,
-        height
-      }
-    };
+    const response = await fetch(`/.netlify/functions/profile?username=${username}`);
+    if (!response.ok) {
+      throw new Error('Failed to load user data');
+    }
+    return await response.json();
   } catch (error) {
-    console.error("Error loading user data:", error);
-    toast.error("Error loading your data");
+    console.error('Error loading user data:', error);
+    toast.error('Failed to load user data');
     return null;
   }
 }
 
 /**
- * Saves user-specific data
+ * Saves user data to the server
  * @param {string} username - The username to save data for
- * @param {Array} entries - The entries to save
- * @param {Object} settings - The settings to save
+ * @param {Array} entries - Weight entries to save
+ * @param {Object} settings - User settings to save
+ * @returns {Promise<boolean>} Success status
  */
-export function saveUserData(username, entries, settings) {
-  if (!username) return;
-  
-  const userPrefix = `user_${username}_`;
-  
+export async function saveUserData(username, entries, settings) {
   try {
-    // Save entries
-    if (entries && entries.length > 0) {
-      localStorage.setItem(`${userPrefix}entries`, JSON.stringify(entries));
+    const response = await fetch(`/.netlify/functions/profile?username=${username}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        entries,
+        settings
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to save user data');
     }
-    
-    // Save settings
-    if (settings) {
-      if (settings.startWeight) {
-        localStorage.setItem(`${userPrefix}start-weight`, settings.startWeight);
-      }
-      
-      if (settings.goalWeight) {
-        localStorage.setItem(`${userPrefix}goal-weight`, settings.goalWeight);
-      }
-      
-      if (settings.height) {
-        localStorage.setItem(`${userPrefix}height`, settings.height);
-      }
-    }
+
+    return true;
   } catch (error) {
-    console.error("Error saving user data:", error);
-    toast.error("Error saving your data");
+    console.error('Error saving user data:', error);
+    toast.error('Failed to save user data');
+    return false;
   }
 }
 
 /**
- * Clears all user data
- * @param {string} username - The username to clear data for
+ * Handles user login
+ * @param {string} username - The username
+ * @param {string} password - The password
+ * @returns {Promise<Object>} Login result
  */
-export function clearUserData(username) {
-  if (!username) return;
-  
-  const userPrefix = `user_${username}_`;
-  
+export async function handleLogin(username, password) {
   try {
-    // Clear all user-specific data
-    localStorage.removeItem(`${userPrefix}entries`);
-    localStorage.removeItem(`${userPrefix}start-weight`);
-    localStorage.removeItem(`${userPrefix}goal-weight`);
-    localStorage.removeItem(`${userPrefix}height`);
+    const response = await fetch('/.netlify/functions/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Login failed');
+    }
+
+    // Store user data in sessionStorage
+    sessionStorage.setItem("current-user", JSON.stringify(data.user));
+    return data;
   } catch (error) {
-    console.error("Error clearing user data:", error);
+    console.error('Login error:', error);
+    toast.error(error.message || 'Login failed');
+    return null;
   }
+}
+
+/**
+ * Handles user logout
+ */
+export function handleLogout() {
+  sessionStorage.removeItem("current-user");
+  window.location.reload();
 }
 
 /**

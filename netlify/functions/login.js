@@ -39,12 +39,24 @@ exports.handler = async function(event, context) {
       };
     }
 
+    // Update last login time
+    user.lastLogin = new Date();
+    await user.save();
+
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         message: 'Login successful',
-        user: { username: user.username, id: user._id }
+        user: {
+          username: user.username,
+          id: user._id,
+          startWeight: user.startWeight,
+          goalWeight: user.goalWeight,
+          height: user.height,
+          entries: user.entries,
+          settings: user.settings
+        }
       })
     };
 

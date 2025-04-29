@@ -11,13 +11,46 @@ const userSchema = new mongoose.Schema({
     required: true
   },
   startWeight: {
-    type: Number
+    type: Number,
+    default: null
   },
   goalWeight: {
-    type: Number
+    type: Number,
+    default: null
   },
   height: {
-    type: Number
+    type: Number,
+    default: null
+  },
+  entries: [{
+    weight: {
+      type: Number,
+      required: true
+    },
+    date: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  settings: {
+    theme: {
+      type: String,
+      enum: ['light', 'dark'],
+      default: 'light'
+    },
+    unit: {
+      type: String,
+      enum: ['kg', 'lbs'],
+      default: 'kg'
+    }
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  lastLogin: {
+    type: Date,
+    default: Date.now
   }
 });
 
